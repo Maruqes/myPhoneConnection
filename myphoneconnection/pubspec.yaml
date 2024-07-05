@@ -1,0 +1,28 @@
+name: myphoneconnection
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: '>=3.4.3 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  image_gallery_saver: '^2.0.3'
+  photo_gallery: '^2.2.1'
+  flutter_local_notifications: '^17.2.0'
+  flutter_background_service: ^4.0.0
+  flutter_secure_storage: ^9.2.2
+  network_info_plus: ^5.0.3
+  device_info_plus: ^10.1.0
+  pointycastle: ^3.9.1
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
