@@ -1,0 +1,5 @@
+continue encryption process and MAKE SURE data stream is encrypted p2p
+
+things to NOT forget:
+    Confirm that u are already connected to that server
+    Change the connection(have multiple session but only 1 logged and be able to change that)

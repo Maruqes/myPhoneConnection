@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:aes_crypt_null_safe/aes_crypt_null_safe.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:async';
 
@@ -99,4 +101,63 @@ Uint8List processInBlocks(AsymmetricBlockCipher engine, Uint8List input) {
   return (output.length == outputOffset)
       ? output
       : output.sublist(0, outputOffset);
+}
+
+Uint8List rsaEncrypt(RSAPublicKey myPublic, Uint8List dataToEncrypt) {
+  final encryptor = PKCS1Encoding(RSAEngine())
+    ..init(true, PublicKeyParameter<RSAPublicKey>(myPublic)); // true=encrypt
+
+  return processInBlocks(encryptor, dataToEncrypt);
+}
+
+Uint8List rsaDecrypt(RSAPrivateKey myPrivate, Uint8List cipherText) {
+  final decryptor = PKCS1Encoding(RSAEngine())
+    ..init(
+        false, PrivateKeyParameter<RSAPrivateKey>(myPrivate)); // false=decrypt
+
+  return processInBlocks(decryptor, cipherText);
+}
+
+Uint8List generateRandomBytes(int length) {
+  final random = Random.secure();
+  final bytes = Uint8List(length);
+  for (int i = 0; i < length; i++) {
+    bytes[i] = random.nextInt(256);
+  }
+  return bytes;
+}
+
+String decryptAES(Uint8List key, String base64CipherText) {
+  // Base64 decode the ciphertext
+  Uint8List cipherTextWithIV = base64.decode(base64CipherText);
+
+  Uint8List iv = Uint8List(16); // Use the same static zero IV as in Go code
+  Uint8List cipherText =
+      cipherTextWithIV.sublist(16); // Adjust based on actual IV handling
+
+  var cipher =
+      PaddedBlockCipherImpl(PKCS7Padding(), CBCBlockCipher(AESEngine()));
+  var paddedParams = PaddedBlockCipherParameters(
+    ParametersWithIV(KeyParameter(key), iv),
+    null,
+  );
+  cipher.init(false, paddedParams);
+
+  return utf8.decode(cipher.process(cipherText));
+}
+
+String encryptAES(Uint8List key, String plainText) {
+  var cipher =
+      PaddedBlockCipherImpl(PKCS7Padding(), CBCBlockCipher(AESEngine()));
+  var iv = Uint8List(16);
+  var paddedParams = PaddedBlockCipherParameters(
+    ParametersWithIV(KeyParameter(key), iv),
+    null,
+  );
+  cipher.init(true, paddedParams);
+
+  var cipherText = cipher.process(utf8.encode(plainText));
+  var cipherTextWithIV = Uint8List.fromList(iv + cipherText);
+
+  return base64.encode(cipherTextWithIV);
 }

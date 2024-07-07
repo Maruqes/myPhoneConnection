@@ -26,7 +26,6 @@ type SysInfo struct {
 var PORT = "8080"
 
 func main() {
-
 	hostStat, _ := host.Info()
 	cpuStat, _ := cpu.Info()
 	vmStat, _ := mem.VirtualMemory()
@@ -69,8 +68,7 @@ func main() {
 
 		log.Printf("Brand: %s, Model: %s, ID: %s  publicKey: %s ", brand, model, id, publicKey_modulus)
 
-		//convert srtring to int
-
+		//convert string to int
 		publicKey_modulus_int := new(big.Int)
 		publicKey_modulus_int.SetString(publicKey_modulus, 10)
 
@@ -83,22 +81,25 @@ func main() {
 			E: int(publicKey_exponent_int.Int64()),
 		}
 
-		message := []byte("This is a secret message.")
+		key, _ := generateRandomKey(32)
 
-		encryptedMessage, err := rsa.EncryptPKCS1v15(
+		encryption_key_base64 := []byte(string(base64.StdEncoding.EncodeToString(key)))
+
+		encryptedkey, err := rsa.EncryptPKCS1v15(
 			rand.Reader,
 			publicKey,
-			message,
+			encryption_key_base64,
 		)
 		if err != nil {
 			fmt.Println("Error encrypting message:", err)
 			return
 		}
 
-		encryptedMessageBase64 := base64.StdEncoding.EncodeToString(encryptedMessage)
+		encryptedkeyBase64 := base64.StdEncoding.EncodeToString(encryptedkey)
 
-		fmt.Fprintf(w, "%s", encryptedMessageBase64)
-		fmt.Println("Encrypted message:", encryptedMessageBase64)
+		fmt.Fprintf(w, "%s", encryptedkeyBase64)
+
+		fmt.Println("key: ", key)
 	})
 
 	port := os.Getenv("PORT")

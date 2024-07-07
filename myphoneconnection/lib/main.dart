@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:photo_gallery/photo_gallery.dart';
 
 int lastImageIndex = 0;
+List<Device> globalDeviceList = [];
+
 Future<List<File>> getImageFromGallery(int numberOfImages) async {
   debugPrint("GETTING IMAGES");
 
@@ -42,7 +44,8 @@ Future<void> main() async {
 
   LocalNotificationService().showNotificationAndroid("Title", "Value");
 
-  startProtocol(8080);
+  final con = ConnectionPC();
+  con.startProtocol(8080);
 
   await addImage();
 
@@ -84,13 +87,16 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
       ),
-      body: const Wrap(
+      body: Wrap(
         children: [
           Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                InputWidget(),
+                const InputWidget(),
+                DeviceListWidget(
+                  devices: globalDeviceList,
+                ),
               ],
             ),
           ),
@@ -128,11 +134,45 @@ class InputWidget extends StatelessWidget {
                   int.parse(myController.text) > 65535) {
                 return;
               }
-              startProtocol(int.parse(myController.text));
+
+              final con = ConnectionPC();
+              con.startProtocol(int.parse(myController.text));
             },
             child: const Text('Try to Connect'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class DeviceListWidget extends StatefulWidget {
+  final List<Device> devices;
+
+  const DeviceListWidget({Key? key, required this.devices}) : super(key: key);
+
+  @override
+  _DeviceListWidgetState createState() => _DeviceListWidgetState();
+}
+
+class _DeviceListWidgetState extends State<DeviceListWidget> {
+  void tryConnection(Device device) {
+    ConnectionPC().startConnectionWithPc(device);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Column(
+        children: widget.devices
+            .map((device) => ElevatedButton(
+                onPressed: () => tryConnection(device),
+                child: ElevatedButton(
+                  child: Text("IP: ${device.ip} Name ${device.hostname}"),
+                  onPressed: () => tryConnection(device),
+                )))
+            .toList(),
       ),
     );
   }
