@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:aes_crypt_null_safe/aes_crypt_null_safe.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:async';
 
@@ -68,15 +67,6 @@ SecureRandom exampleSecureRandom() {
   secureRandom.seed(KeyParameter(Uint8List.fromList(seeds)));
 
   return secureRandom;
-}
-
-String getRandomString() {
-  final length = Random().nextInt(10) + 10;
-  const charset = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  return List.generate(length, (index) {
-    final randomIndex = Random.secure().nextInt(charset.length);
-    return charset[randomIndex];
-  }).join();
 }
 
 Uint8List processInBlocks(AsymmetricBlockCipher engine, Uint8List input) {

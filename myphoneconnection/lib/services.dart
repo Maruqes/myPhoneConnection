@@ -1,10 +1,32 @@
 import 'dart:async';
+import 'dart:isolate';
 import 'dart:ui';
 
+import 'package:myphoneconnection/main.dart';
 import 'package:myphoneconnection/server.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+class ListenToPort {
+  void initListenPort() {
+    ReceivePort port = ReceivePort();
+    IsolateNameServer.registerPortWithName(port.sendPort, 'addDevice');
+    // Listen for messages from the background isolate
+    port.listen((device) {
+      Device newDevice = Device(
+        device['hostname'],
+        device['os'],
+        device['CPU'],
+        device['RAM'],
+        device['ip'],
+        device['port'],
+      );
+      globalDeviceListNotifier.value = List.from(globalDeviceListNotifier.value)
+        ..add(newDevice);
+    });
+  }
+}
 
 class LocalNotificationService {
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -48,36 +70,6 @@ class LocalNotificationService {
   }
 }
 
-void startBackgroundService() {
-  final service = FlutterBackgroundService();
-  service.startService();
-}
-
-void stopBackgroundService() {
-  final service = FlutterBackgroundService();
-  service.invoke("stop");
-}
-
-Future<void> initializeService() async {
-  final service = FlutterBackgroundService();
-
-  await service.configure(
-    iosConfiguration: IosConfiguration(
-      autoStart: true,
-      onForeground: onStart,
-      onBackground: onIosBackground,
-    ),
-    androidConfiguration: AndroidConfiguration(
-      autoStart: true,
-      onStart: onStart,
-      isForegroundMode: true,
-      initialNotificationContent: "Running in the background",
-      initialNotificationTitle: "Background Service",
-      autoStartOnBoot: true,
-    ),
-  );
-}
-
 @pragma('vm:entry-point')
 Future<bool> onIosBackground(ServiceInstance service) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -88,7 +80,42 @@ Future<bool> onIosBackground(ServiceInstance service) async {
 
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
+  final con = ConnectionPC();
+  con.startProtocol(8080);
+
   Timer.periodic(const Duration(seconds: 5), (timer) {
     debugPrint("Running background service");
   });
+}
+
+class PcService {
+  void startBackgroundService() {
+    final service = FlutterBackgroundService();
+    service.startService();
+  }
+
+  void stopBackgroundService() {
+    final service = FlutterBackgroundService();
+    service.invoke("stop");
+  }
+
+  Future<void> initializeService() async {
+    final service = FlutterBackgroundService();
+
+    await service.configure(
+      iosConfiguration: IosConfiguration(
+        autoStart: true,
+        onForeground: onStart,
+        onBackground: onIosBackground,
+      ),
+      androidConfiguration: AndroidConfiguration(
+        autoStart: true,
+        onStart: onStart,
+        isForegroundMode: true,
+        initialNotificationContent: "Running in the background",
+        initialNotificationTitle: "Background Service",
+        autoStartOnBoot: true,
+      ),
+    );
+  }
 }

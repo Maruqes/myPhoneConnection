@@ -3,6 +3,7 @@ import 'dart:ffi';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
+import 'dart:ui';
 
 import 'package:myphoneconnection/config.dart';
 import 'package:flutter/material.dart';
@@ -40,6 +41,17 @@ class Device {
   String port;
 
   Device(this.hostname, this.os, this.CPU, this.RAM, this.ip, this.port);
+
+  toJson() {
+    return {
+      'hostname': hostname,
+      'os': os,
+      'CPU': CPU,
+      'RAM': RAM,
+      'ip': ip,
+      'port': port,
+    };
+  }
 }
 
 Future<List<Device>> scanNetwork(port) async {
@@ -78,15 +90,20 @@ Future<List<Device>> scanNetwork(port) async {
   return devices;
 }
 
-/* 
-doulhe uma public key onde ele deve guardar
-ps:devo guardar a private e public key no storage
-
-para aceitar um websocket ele deve descriptar uma mensagem minha com a public key dele e me enviar a resposta 
-*/
-
 class ConnectionPC {
   late Uint8List key;
+  HttpClient clientPublic = HttpClient();
+
+  Uint8List decryptKey(privateKey, encryptedKey) {
+    //reply is a encrypted message in base 64 decrypt it with private key
+    final List<int> encrypted = base64.decode(encryptedKey);
+    Uint8List bytes = Uint8List.fromList(encrypted);
+
+    //decrypt the message with PKCS1v15
+    final decryptedBase64 = rsaDecrypt(privateKey, bytes);
+    key = base64.decode(utf8.decode(decryptedBase64));
+    return key;
+  }
 
   Future<HttpClient> askForConnection(Device device) async {
     DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
@@ -116,13 +133,7 @@ class ConnectionPC {
     final HttpClientResponse response = await request.close();
     final String reply = await response.transform(utf8.decoder).join();
 
-    //reply is a encrypted message in base 64 decrypt it with private key
-    final List<int> encrypted = base64.decode(reply);
-    Uint8List bytes = Uint8List.fromList(encrypted);
-
-    //decrypt the message with PKCS1v15
-    final decryptedBase64 = rsaDecrypt(privateKey, bytes);
-    key = base64.decode(utf8.decode(decryptedBase64));
+    final key = decryptKey(privateKey, reply);
 
     debugPrint('Key received: $key');
 
@@ -130,17 +141,18 @@ class ConnectionPC {
   }
 
   Future<void> startConnectionWithPc(Device device) async {
-    HttpClient client = await askForConnection(device);
+    clientPublic = await askForConnection(device);
   }
 
   Future<void> startProtocol(port) async {
     List<Device> devices = await scanNetwork(port);
 
-    debugPrint('Devices found:');
+    debugPrint('Devices found->');
     for (int i = 0; i < devices.length; i++) {
+      final deviceJson = devices[i].toJson();
+      IsolateNameServer.lookupPortByName('addDevice')?.send(deviceJson);
       debugPrint(
           'Device found: ${devices[i].ip} with hostname: ${devices[i].hostname} and OS: ${devices[i].os} and CPU: ${devices[i].CPU} and RAM: ${devices[i].RAM} at port: ${devices[i].port}');
-      globalDeviceList.add(devices[i]);
     }
   }
 }

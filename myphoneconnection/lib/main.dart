@@ -8,6 +8,8 @@ import 'package:photo_gallery/photo_gallery.dart';
 
 int lastImageIndex = 0;
 List<Device> globalDeviceList = [];
+ValueNotifier<List<Device>> globalDeviceListNotifier =
+    ValueNotifier<List<Device>>([]);
 
 Future<List<File>> getImageFromGallery(int numberOfImages) async {
   debugPrint("GETTING IMAGES");
@@ -31,27 +33,14 @@ Future<List<File>> getImageFromGallery(int numberOfImages) async {
 }
 
 Future<void> main() async {
-  List<File> images = [];
-
-  Future<void> addImage() async {
-    List<File> img = await getImageFromGallery(20);
-    images.addAll(img);
-    debugPrint("added image number ${images.length}");
-  }
-
   WidgetsFlutterBinding.ensureInitialized();
   await LocalNotificationService().init();
 
-  LocalNotificationService().showNotificationAndroid("Title", "Value");
+  ListenToPort().initListenPort();
 
-  final con = ConnectionPC();
-  con.startProtocol(8080);
+  await PcService().initializeService();
 
-  await addImage();
-
-  await initializeService();
-
-  runApp(const MyApp());
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -80,6 +69,21 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  void initState() {
+    super.initState();
+    globalDeviceListNotifier.addListener(_updateDeviceList);
+  }
+
+  @override
+  void dispose() {
+    globalDeviceListNotifier.removeListener(_updateDeviceList);
+    super.dispose();
+  }
+
+  void _updateDeviceList() {
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -93,9 +97,21 @@ class _MyHomePageState extends State<MyHomePage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                const InputWidget(),
-                DeviceListWidget(
-                  devices: globalDeviceList,
+                ElevatedButton(
+                    onPressed: () => {
+                          //update UI
+                          setState(() {
+                            globalDeviceList = globalDeviceList;
+                          }),
+                        },
+                    child: const Text("Update Device List")),
+                ValueListenableBuilder<List<Device>>(
+                  valueListenable: globalDeviceListNotifier,
+                  builder: (context, devices, _) {
+                    return DeviceListWidget(
+                      devices: devices,
+                    );
+                  },
                 ),
               ],
             ),
@@ -107,55 +123,11 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 }
 
-//ask user for a port to use
-
-class InputWidget extends StatelessWidget {
-  const InputWidget({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final myController = TextEditingController();
-
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Column(
-        children: [
-          TextField(
-            controller: myController,
-          ),
-          ElevatedButton(
-            onPressed: () {
-              debugPrint(
-                  'Try to Connect wth port number: ${myController.text}');
-              if (myController.text.isEmpty) {
-                return;
-              }
-              if (int.parse(myController.text) < 0 ||
-                  int.parse(myController.text) > 65535) {
-                return;
-              }
-
-              final con = ConnectionPC();
-              con.startProtocol(int.parse(myController.text));
-            },
-            child: const Text('Try to Connect'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class DeviceListWidget extends StatefulWidget {
+class DeviceListWidget extends StatelessWidget {
   final List<Device> devices;
 
-  const DeviceListWidget({Key? key, required this.devices}) : super(key: key);
+  DeviceListWidget({Key? key, required this.devices}) : super(key: key);
 
-  @override
-  _DeviceListWidgetState createState() => _DeviceListWidgetState();
-}
-
-class _DeviceListWidgetState extends State<DeviceListWidget> {
   void tryConnection(Device device) {
     ConnectionPC().startConnectionWithPc(device);
   }
@@ -165,13 +137,13 @@ class _DeviceListWidgetState extends State<DeviceListWidget> {
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Column(
-        children: widget.devices
-            .map((device) => ElevatedButton(
+        children: devices
+            .map(
+              (device) => ElevatedButton(
                 onPressed: () => tryConnection(device),
-                child: ElevatedButton(
-                  child: Text("IP: ${device.ip} Name ${device.hostname}"),
-                  onPressed: () => tryConnection(device),
-                )))
+                child: Text("IP: ${device.ip} Name ${device.hostname}"),
+              ),
+            )
             .toList(),
       ),
     );

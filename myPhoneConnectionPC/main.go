@@ -25,6 +25,37 @@ type SysInfo struct {
 
 var PORT = "8080"
 
+func generate_key(modulus string, exponent string) (string, error) {
+	//convert string to int
+	publicKey_modulus_int := new(big.Int)
+	publicKey_modulus_int.SetString(modulus, 10)
+
+	publicKey_exponent_int := new(big.Int)
+	publicKey_exponent_int.SetString(exponent, 10)
+
+	//generate public keu with modulus and exponent
+	publicKey := &rsa.PublicKey{
+		N: publicKey_modulus_int,
+		E: int(publicKey_exponent_int.Int64()),
+	}
+
+	key, _ := generateRandomKey(64)
+
+	encryption_key_base64 := []byte(string(base64.StdEncoding.EncodeToString(key)))
+
+	encryptedkey, err := rsa.EncryptPKCS1v15(
+		rand.Reader,
+		publicKey,
+		encryption_key_base64,
+	)
+	if err != nil {
+		fmt.Println("Error encrypting message:", err)
+		return "", err
+	}
+
+	return base64.StdEncoding.EncodeToString(encryptedkey), nil
+}
+
 func main() {
 	hostStat, _ := host.Info()
 	cpuStat, _ := cpu.Info()
@@ -68,38 +99,16 @@ func main() {
 
 		log.Printf("Brand: %s, Model: %s, ID: %s  publicKey: %s ", brand, model, id, publicKey_modulus)
 
-		//convert string to int
-		publicKey_modulus_int := new(big.Int)
-		publicKey_modulus_int.SetString(publicKey_modulus, 10)
-
-		publicKey_exponent_int := new(big.Int)
-		publicKey_exponent_int.SetString(publicKey_exponent, 10)
-
-		//generate public keu with modulus and exponent
-		publicKey := &rsa.PublicKey{
-			N: publicKey_modulus_int,
-			E: int(publicKey_exponent_int.Int64()),
-		}
-
-		key, _ := generateRandomKey(32)
-
-		encryption_key_base64 := []byte(string(base64.StdEncoding.EncodeToString(key)))
-
-		encryptedkey, err := rsa.EncryptPKCS1v15(
-			rand.Reader,
-			publicKey,
-			encryption_key_base64,
-		)
+		encryptedkeyBase64, err := generate_key(publicKey_modulus, publicKey_exponent)
+		
 		if err != nil {
-			fmt.Println("Error encrypting message:", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		encryptedkeyBase64 := base64.StdEncoding.EncodeToString(encryptedkey)
-
 		fmt.Fprintf(w, "%s", encryptedkeyBase64)
 
-		fmt.Println("key: ", key)
+		fmt.Println("encryptedkeyBase64: ", encryptedkeyBase64)
 	})
 
 	port := os.Getenv("PORT")

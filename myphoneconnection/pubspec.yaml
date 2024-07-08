@@ -17,7 +17,6 @@ dependencies:
   network_info_plus: ^5.0.3
   device_info_plus: ^10.1.0
   pointycastle: ^3.9.1
-  aes_crypt_null_safe: ^3.0.0
 
 
 dev_dependencies:
