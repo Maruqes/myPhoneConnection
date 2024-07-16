@@ -11,24 +11,7 @@ import 'package:myphoneconnection/main.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import "package:pointycastle/export.dart";
-
-Future<String> checkIpConnection(ip, port, brand, model, id) async {
-  try {
-    final HttpClient client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 3);
-    final HttpClientRequest request = await client.get(
-      ip,
-      port,
-      '/do_i_exist?brand=$brand&model=$model&serialNumber=$id ',
-    );
-    final HttpClientResponse response = await request.close();
-    final String reply = await response.transform(utf8.decoder).join();
-
-    return reply;
-  } catch (e) {
-    return 'Error: $e';
-  }
-}
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 class Device {
   String hostname;
@@ -51,6 +34,24 @@ class Device {
       'ip': ip,
       'port': port,
     };
+  }
+}
+
+Future<String> checkIpConnection(ip, port, brand, model, id) async {
+  try {
+    final HttpClient client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 3);
+    final HttpClientRequest request = await client.get(
+      ip,
+      port,
+      '/do_i_exist?brand=$brand&model=$model&serialNumber=$id ',
+    );
+    final HttpClientResponse response = await request.close();
+    final String reply = await response.transform(utf8.decoder).join();
+
+    return reply;
+  } catch (e) {
+    return 'Error: $e';
   }
 }
 
@@ -88,6 +89,33 @@ Future<List<Device>> scanNetwork(port) async {
   );
   debugPrint('Done');
   return devices;
+}
+
+class WebSocketConnection {
+  late WebSocketChannel channel;
+  late Uint8List key;
+
+  WebSocketConnection(this.key);
+
+  void sendData(dynamic data) {
+    final encData = encryptAES(key, data);
+    channel.sink.add(encData);
+  }
+
+  void recieveData(String data) {
+    final dec = decryptAES(key, data);
+    debugPrint('Recieved dec: $dec');
+  }
+
+  void createWebSocket(Device device) {
+    channel = WebSocketChannel.connect(
+      Uri.parse('ws://${device.ip}:${device.port}/ws'),
+    );
+    channel.stream.listen((message) {
+      recieveData(message);
+    });
+    sendData('Hello from phone');
+  }
 }
 
 class ConnectionPC {
@@ -142,9 +170,13 @@ class ConnectionPC {
 
   Future<void> startConnectionWithPc(Device device) async {
     clientPublic = await askForConnection(device);
+    final ws = WebSocketConnection(key);
+    ws.createWebSocket(device);
   }
 
   Future<void> startProtocol(port) async {
+    IsolateNameServer.lookupPortByName('clearDevices')?.send("");
+
     List<Device> devices = await scanNetwork(port);
 
     debugPrint('Devices found->');

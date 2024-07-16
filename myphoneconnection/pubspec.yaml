@@ -17,6 +17,7 @@ dependencies:
   network_info_plus: ^5.0.3
   device_info_plus: ^10.1.0
   pointycastle: ^3.9.1
+  web_socket_channel: ^3.0.0
 
 
 dev_dependencies:

@@ -16,6 +16,8 @@ import (
 	"github.com/shirou/gopsutil/mem"
 )
 
+var ws Ws
+
 type SysInfo struct {
 	Hostname string `bson:hostname`
 	Platform string `bson:platform`
@@ -25,7 +27,7 @@ type SysInfo struct {
 
 var PORT = "8080"
 
-func generate_key(modulus string, exponent string) (string, error) {
+func generate_key(modulus string, exponent string) (string, []byte, error) {
 	//convert string to int
 	publicKey_modulus_int := new(big.Int)
 	publicKey_modulus_int.SetString(modulus, 10)
@@ -39,7 +41,7 @@ func generate_key(modulus string, exponent string) (string, error) {
 		E: int(publicKey_exponent_int.Int64()),
 	}
 
-	key, _ := generateRandomKey(64)
+	key, _ := generateRandomKey(32)
 
 	encryption_key_base64 := []byte(string(base64.StdEncoding.EncodeToString(key)))
 
@@ -50,13 +52,13 @@ func generate_key(modulus string, exponent string) (string, error) {
 	)
 	if err != nil {
 		fmt.Println("Error encrypting message:", err)
-		return "", err
+		return "", nil, err
 	}
 
-	return base64.StdEncoding.EncodeToString(encryptedkey), nil
+	return base64.StdEncoding.EncodeToString(encryptedkey), key, nil
 }
 
-func main() {
+func getPCstats() *SysInfo {
 	hostStat, _ := host.Info()
 	cpuStat, _ := cpu.Info()
 	vmStat, _ := mem.VirtualMemory()
@@ -67,6 +69,18 @@ func main() {
 	info.Platform = hostStat.Platform
 	info.CPU = cpuStat[0].ModelName
 	info.RAM = vmStat.Total / 1024 / 1024
+	return info
+}
+
+func printMsg(s string) {
+	fmt.Println("on da message ", s)
+	ws.sendData("bouas mano")
+}
+
+func main() {
+	info := getPCstats()
+
+	key := []byte{}
 
 	http.HandleFunc("/do_i_exist", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "My Phone Connection%s//%s//%s//%d", info.Hostname, info.Platform, info.CPU, info.RAM)
@@ -90,6 +104,8 @@ func main() {
 			return
 		}
 
+		//deve aqui aceitar o dispositivo
+
 		// Access the JSON data
 		brand := data["brand"].(string)
 		model := data["model"].(string)
@@ -99,8 +115,8 @@ func main() {
 
 		log.Printf("Brand: %s, Model: %s, ID: %s  publicKey: %s ", brand, model, id, publicKey_modulus)
 
-		encryptedkeyBase64, err := generate_key(publicKey_modulus, publicKey_exponent)
-		
+		encryptedkeyBase64, _key, err := generate_key(publicKey_modulus, publicKey_exponent)
+		key = _key
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -108,8 +124,9 @@ func main() {
 
 		fmt.Fprintf(w, "%s", encryptedkeyBase64)
 
-		fmt.Println("encryptedkeyBase64: ", encryptedkeyBase64)
 	})
+
+	ws.httpWS(printMsg, &key)
 
 	port := os.Getenv("PORT")
 	if port == "" {

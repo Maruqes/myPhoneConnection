@@ -61,8 +61,6 @@ func encryptAES(key []byte, plainText string) (string, error) {
 	mode := cipher.NewCBCEncrypter(block, iv)
 	mode.CryptBlocks(cipherText[aes.BlockSize:], plainTextBytes)
 
-	fmt.Println("key: ", key)
-	fmt.Println("cipherText: ", cipherText)
 	return base64.StdEncoding.EncodeToString(cipherText), nil
 }
 

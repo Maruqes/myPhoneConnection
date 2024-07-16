@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:photo_gallery/photo_gallery.dart';
 
 int lastImageIndex = 0;
-List<Device> globalDeviceList = [];
 ValueNotifier<List<Device>> globalDeviceListNotifier =
     ValueNotifier<List<Device>>([]);
 
@@ -100,9 +99,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 ElevatedButton(
                     onPressed: () => {
                           //update UI
-                          setState(() {
-                            globalDeviceList = globalDeviceList;
-                          }),
+                          setState(() {}),
                         },
                     child: const Text("Update Device List")),
                 ValueListenableBuilder<List<Device>>(

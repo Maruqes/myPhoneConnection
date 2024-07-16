@@ -108,6 +108,14 @@ Uint8List rsaDecrypt(RSAPrivateKey myPrivate, Uint8List cipherText) {
   return processInBlocks(decryptor, cipherText);
 }
 
+String generateRandomString(int len) {
+  final random = Random.secure();
+  const chars =
+      '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  return List.generate(len, (index) => chars[random.nextInt(chars.length)])
+      .join();
+}
+
 Uint8List generateRandomBytes(int length) {
   final random = Random.secure();
   final bytes = Uint8List(length);

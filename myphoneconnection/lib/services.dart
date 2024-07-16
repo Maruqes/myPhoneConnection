@@ -25,6 +25,13 @@ class ListenToPort {
       globalDeviceListNotifier.value = List.from(globalDeviceListNotifier.value)
         ..add(newDevice);
     });
+
+    ReceivePort port2 = ReceivePort();
+    IsolateNameServer.registerPortWithName(port2.sendPort, 'clearDevices');
+    // Listen for messages from the background isolate
+    port2.listen((_) {
+      globalDeviceListNotifier.value = List.empty(growable: true);
+    });
   }
 }
 
@@ -83,9 +90,7 @@ void onStart(ServiceInstance service) async {
   final con = ConnectionPC();
   con.startProtocol(8080);
 
-  Timer.periodic(const Duration(seconds: 5), (timer) {
-    debugPrint("Running background service");
-  });
+  Timer.periodic(const Duration(seconds: 15), (timer) {});
 }
 
 class PcService {

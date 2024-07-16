@@ -1,2 +1,2 @@
 run:
-	go run main.go encryption.go
+	go run main.go encryption.go ws.go
