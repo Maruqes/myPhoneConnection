@@ -103,6 +103,11 @@ class _MyHomePageState extends State<MyHomePage> {
                           setState(() {}),
                         },
                     child: const Text("Update Device List")),
+                ElevatedButton(
+                    onPressed: () {
+                      PairedDevices().clearAllConnectionSaves();
+                    },
+                    child: const Text("Clear All Connection Saves")),
                 ValueListenableBuilder<List<Device>>(
                   valueListenable: globalDeviceListNotifier,
                   builder: (context, devices, _) {

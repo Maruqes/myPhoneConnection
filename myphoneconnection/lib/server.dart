@@ -13,6 +13,8 @@ import 'package:device_info_plus/device_info_plus.dart';
 import "package:pointycastle/export.dart";
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+bool isConnected = false;
+
 class Device {
   String hostname;
   String os;
@@ -106,6 +108,18 @@ Future<List<Device>> scanNetwork(port) async {
 }
 
 class PairedDevices {
+  Future<void> clearAllConnectionSaves() async {
+    int index = 0;
+    ConnectionSave? oldSave = await readConnectionSave("connectionSave", index);
+
+    while (oldSave != null) {
+      deleteData("connectionSave$index");
+      index++;
+      oldSave = await readConnectionSave("connectionSave", index);
+    }
+    debugPrint('All connection saves cleared');
+  }
+
   Future<ConnectionSave?> readConnectionSave(String key, int index) async {
     final temp = await readData(key + index.toString());
     if (temp != null) {
@@ -139,8 +153,8 @@ class PairedDevices {
         return;
       }
 
-      oldSave = await readConnectionSave("connectionSave", index);
       index++;
+      oldSave = await readConnectionSave("connectionSave", index);
     }
 
     writeData("connectionSave$index", jsonEncode(save.toJson()));
@@ -165,8 +179,8 @@ class PairedDevices {
     final HttpClientResponse response = await request.close();
     final String reply = await response.transform(utf8.decoder).join();
     if (reply == 'OK') {
-      debugPrint('Connection established with ${device.ip}');
-      ConnectionPC().startConnectionWithPc(device);
+      debugPrint('Trying after NextPass OK ${device.ip}');
+      await ConnectionPC().startConnectionWithPc(device);
     } else {
       debugPrint('Connection failed with ${device.ip}');
     }
@@ -188,7 +202,7 @@ class PairedDevices {
     final last8BytesBase64 = base64.encode(last8Bytes);
     if (reply == last8BytesBase64) {
       debugPrint('Connection is going with ${device.ip}');
-      checkNextPasswordProtocolLast(device, nextPass);
+      await checkNextPasswordProtocolLast(device, nextPass);
     } else {
       debugPrint('Connection failed with ${device.ip}');
     }
@@ -200,6 +214,14 @@ class PairedDevices {
 
     while (oldSave != null) {
       oldSave = await readConnectionSave("connectionSave", index);
+      if (oldSave?.device.hostname == null ||
+          oldSave?.device.CPU == null ||
+          oldSave?.device.RAM == null) {
+        deleteData("connectionSave$index");
+        index++;
+        continue;
+      }
+
       debugPrint(
           'Old save($index): ${oldSave?.device.hostname} with CPU ${oldSave?.device.CPU} and RAM ${oldSave?.device.RAM}');
 
@@ -208,9 +230,9 @@ class PairedDevices {
             oldSave.device.os == device.os &&
             oldSave.device.CPU == device.CPU &&
             oldSave.device.RAM == device.RAM) {
-          checkNextPasswordProtocol(device, oldSave.nextPass);
           debugPrint(
               'Found matching save ${device.hostname} with CPU ${device.CPU} and RAM ${device.RAM}');
+          await checkNextPasswordProtocol(device, oldSave.nextPass);
           return;
         }
       }
@@ -309,12 +331,17 @@ class ConnectionPC {
     final key = decryptKey(privateKey, reply);
 
     debugPrint('Key received: $key');
-
     return client;
   }
 
   Future<void> startConnectionWithPc(Device device) async {
+    if (isConnected) {
+      debugPrint('Already connected');
+      return;
+    }
     clientPublic = await askForConnection(device);
+    isConnected = true;
+    debugPrint('Connected to ${device.ip}');
     ws = WebSocketConnection(key);
     ws.createWebSocket(device);
     PairedDevices().setNextPasswordForConnection(device, ws);
@@ -327,13 +354,13 @@ class ConnectionPC {
 
     debugPrint('Devices found->');
     for (int i = 0; i < devices.length; i++) {
+      debugPrint(
+          'Device found: ${devices[i].ip} with hostname: ${devices[i].hostname} and OS: ${devices[i].os} and CPU: ${devices[i].CPU} and RAM: ${devices[i].RAM} at port: ${devices[i].port}');
+
       final deviceJson = devices[i].toJson();
       IsolateNameServer.lookupPortByName('addDevice')?.send(deviceJson);
 
-      PairedDevices().connectToAlreadyPairedDevice(devices[i]);
-
-      debugPrint(
-          'Device found: ${devices[i].ip} with hostname: ${devices[i].hostname} and OS: ${devices[i].os} and CPU: ${devices[i].CPU} and RAM: ${devices[i].RAM} at port: ${devices[i].port}');
+      await PairedDevices().connectToAlreadyPairedDevice(devices[i]);
     }
   }
 }
