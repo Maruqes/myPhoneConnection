@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/host"
@@ -19,10 +20,10 @@ import (
 var ws Ws
 
 type SysInfo struct {
-	Hostname string `bson:hostname`
-	Platform string `bson:platform`
-	CPU      string `bson:cpu`
-	RAM      uint64 `bson:ram`
+	Hostname string `bson:"hostname"`
+	Platform string `bson:"platform"`
+	CPU      string `bson:"cpu"`
+	RAM      uint64 `bson:"ram"`
 }
 
 var PORT = "8080"
@@ -72,9 +73,24 @@ func getPCstats() *SysInfo {
 	return info
 }
 
-func printMsg(s string) {
-	fmt.Println("on da message ", s)
-	ws.sendData("bouas mano")
+func nextPassSave(s string) {
+	nextPassb64 := strings.Replace(s, "nextPass//", "", 1)
+	nextPass, err := base64.StdEncoding.DecodeString(nextPassb64)
+	if err != nil {
+		log.Println("Error decoding nextPass:", err)
+	}
+	log.Println("Next pass:", nextPass)
+	//write this bytes in a file
+	err = os.WriteFile("nextPass.bin", nextPass, 0644)
+	if err != nil {
+		log.Println("Error writing nextPass:", err)
+	}
+}
+
+func wsMessages(s string) {
+	if strings.Contains(s, "nextPass//") {
+		nextPassSave(s)
+	}
 }
 
 func main() {
@@ -126,7 +142,47 @@ func main() {
 
 	})
 
-	ws.httpWS(printMsg, &key)
+	http.HandleFunc("/startNextPassProtocol", func(w http.ResponseWriter, r *http.Request) {
+		//get the phone info where it comes from if it matches the one that was connected gives half of the pass
+		data, err := ReadFromFile("nextPass.bin")
+		if err != nil {
+			log.Println("Error reading nextPass:", err)
+		}
+
+		last8Bytes := data[len(data)-8:]
+
+		fmt.Fprint(w, base64.StdEncoding.EncodeToString(last8Bytes))
+	})
+
+	http.HandleFunc("/nextPassProtocolLastPass", func(w http.ResponseWriter, r *http.Request) {
+		var data map[string]interface{}
+		err := json.NewDecoder(r.Body).Decode(&data)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		//deve aqui aceitar o dispositivo
+
+		// Access the JSON data
+		fullPassb64 := data["fullPass"].(string)
+
+		fullPassOUR, err := ReadFromFile("nextPass.bin")
+		if err != nil {
+			log.Println("Error reading nextPass:", err)
+		}
+
+		fullPassOURb64 := base64.StdEncoding.EncodeToString(fullPassOUR)
+
+		if fullPassOURb64 == fullPassb64 {
+			fmt.Fprint(w, "OK")
+		} else {
+			fmt.Fprint(w, "NOTOK")
+		}
+
+	})
+
+	ws.httpWS(wsMessages, &key)
 
 	port := os.Getenv("PORT")
 	if port == "" {

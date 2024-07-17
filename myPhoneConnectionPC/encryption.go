@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"os"
 )
 
 func generateRandomKey(length int) ([]byte, error) {
@@ -96,4 +97,20 @@ func decryptAES(key []byte, cipherText string) (string, error) {
 	}
 
 	return string(plainTextBytes), nil
+}
+
+func WriteToFile(filename string, data []byte) error {
+	err := os.WriteFile(filename, data, 0644)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func ReadFromFile(filename string) ([]byte, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }

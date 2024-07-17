@@ -37,6 +37,20 @@ class Device {
   }
 }
 
+class ConnectionSave {
+  Device device;
+  Uint8List nextPass;
+
+  ConnectionSave(this.device, this.nextPass);
+
+  toJson() {
+    return {
+      'device': device.toJson(),
+      'nextPass': base64.encode(nextPass),
+    };
+  }
+}
+
 Future<String> checkIpConnection(ip, port, brand, model, id) async {
   try {
     final HttpClient client = HttpClient();
@@ -91,6 +105,136 @@ Future<List<Device>> scanNetwork(port) async {
   return devices;
 }
 
+class PairedDevices {
+  Future<ConnectionSave?> readConnectionSave(String key, int index) async {
+    final temp = await readData(key + index.toString());
+    if (temp != null) {
+      final save = jsonDecode(temp);
+      return ConnectionSave(
+        Device(
+          save['device']['hostname'],
+          save['device']['os'],
+          save['device']['CPU'],
+          save['device']['RAM'],
+          save['device']['ip'],
+          save['device']['port'],
+        ),
+        base64.decode(save['nextPass']),
+      );
+    } else {
+      return null;
+    }
+  }
+
+  Future<void> writeConnectionSave(ConnectionSave save, Device device) async {
+    ConnectionSave? oldSave = await readConnectionSave("connectionSave", 0);
+    int index = 0;
+    while (oldSave != null) {
+      if (oldSave.device.hostname == device.hostname &&
+          oldSave.device.os == device.os &&
+          oldSave.device.CPU == device.CPU &&
+          oldSave.device.RAM == device.RAM) {
+        writeData("connectionSave$index", jsonEncode(save.toJson()));
+        debugPrint('Connection saved on index $index');
+        return;
+      }
+
+      oldSave = await readConnectionSave("connectionSave", index);
+      index++;
+    }
+
+    writeData("connectionSave$index", jsonEncode(save.toJson()));
+    debugPrint('Connection saved on index $index');
+  }
+
+  Future<void> checkNextPasswordProtocolLast(
+      Device device, Uint8List nextPass) async {
+    //clear connection save FALTA DAR CLEAR CARALHO
+
+    final HttpClient client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 30);
+    final HttpClientRequest request = await client.postUrl(
+      Uri.parse('http://${device.ip}:${device.port}/nextPassProtocolLastPass'),
+    );
+
+    request.headers.set('Content-Type', 'application/json');
+    request.write(jsonEncode({
+      'fullPass': base64.encode(nextPass),
+    }));
+
+    final HttpClientResponse response = await request.close();
+    final String reply = await response.transform(utf8.decoder).join();
+    if (reply == 'OK') {
+      debugPrint('Connection established with ${device.ip}');
+      ConnectionPC().startConnectionWithPc(device);
+    } else {
+      debugPrint('Connection failed with ${device.ip}');
+    }
+  }
+
+  Future<void> checkNextPasswordProtocol(
+      Device device, Uint8List nextPass) async {
+    final HttpClient client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 3);
+    final HttpClientRequest request = await client.get(
+      device.ip,
+      int.parse(device.port),
+      '/startNextPassProtocol',
+    );
+    final HttpClientResponse response = await request.close();
+    final String reply = await response.transform(utf8.decoder).join();
+
+    final last8Bytes = nextPass.sublist(8, 16);
+    final last8BytesBase64 = base64.encode(last8Bytes);
+    if (reply == last8BytesBase64) {
+      debugPrint('Connection is going with ${device.ip}');
+      checkNextPasswordProtocolLast(device, nextPass);
+    } else {
+      debugPrint('Connection failed with ${device.ip}');
+    }
+  }
+
+  Future<void> connectToAlreadyPairedDevice(Device device) async {
+    int index = 0;
+    ConnectionSave? oldSave = await readConnectionSave("connectionSave", index);
+
+    while (oldSave != null) {
+      oldSave = await readConnectionSave("connectionSave", index);
+      debugPrint(
+          'Old save($index): ${oldSave?.device.hostname} with CPU ${oldSave?.device.CPU} and RAM ${oldSave?.device.RAM}');
+
+      if (oldSave != null) {
+        if (oldSave.device.hostname == device.hostname &&
+            oldSave.device.os == device.os &&
+            oldSave.device.CPU == device.CPU &&
+            oldSave.device.RAM == device.RAM) {
+          checkNextPasswordProtocol(device, oldSave.nextPass);
+          debugPrint(
+              'Found matching save ${device.hostname} with CPU ${device.CPU} and RAM ${device.RAM}');
+          return;
+        }
+      }
+
+      debugPrint('Checked Index: $index');
+      index++;
+    }
+  }
+
+  void setNextPasswordForConnection(Device device, WebSocketConnection ws) {
+    final nextPass = generateRandomBytes(16);
+    final nextPassBase64 = base64.encode(nextPass);
+    final data = "nextPass//$nextPassBase64";
+    ws.sendData(data);
+
+    ConnectionSave save = ConnectionSave(
+      device,
+      nextPass,
+    );
+
+    writeConnectionSave(save, device);
+  }
+}
+
 class WebSocketConnection {
   late WebSocketChannel channel;
   late Uint8List key;
@@ -121,6 +265,7 @@ class WebSocketConnection {
 class ConnectionPC {
   late Uint8List key;
   HttpClient clientPublic = HttpClient();
+  late WebSocketConnection ws;
 
   Uint8List decryptKey(privateKey, encryptedKey) {
     //reply is a encrypted message in base 64 decrypt it with private key
@@ -170,8 +315,9 @@ class ConnectionPC {
 
   Future<void> startConnectionWithPc(Device device) async {
     clientPublic = await askForConnection(device);
-    final ws = WebSocketConnection(key);
+    ws = WebSocketConnection(key);
     ws.createWebSocket(device);
+    PairedDevices().setNextPasswordForConnection(device, ws);
   }
 
   Future<void> startProtocol(port) async {
@@ -183,6 +329,9 @@ class ConnectionPC {
     for (int i = 0; i < devices.length; i++) {
       final deviceJson = devices[i].toJson();
       IsolateNameServer.lookupPortByName('addDevice')?.send(deviceJson);
+
+      PairedDevices().connectToAlreadyPairedDevice(devices[i]);
+
       debugPrint(
           'Device found: ${devices[i].ip} with hostname: ${devices[i].hostname} and OS: ${devices[i].os} and CPU: ${devices[i].CPU} and RAM: ${devices[i].RAM} at port: ${devices[i].port}');
     }
