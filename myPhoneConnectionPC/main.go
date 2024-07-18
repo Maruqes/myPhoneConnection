@@ -90,6 +90,8 @@ func nextPassSave(s string) {
 func wsMessages(s string) {
 	if strings.Contains(s, "nextPass//") {
 		nextPassSave(s)
+	} else {
+		log.Println("WS:", s)
 	}
 }
 
