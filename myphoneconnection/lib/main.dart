@@ -7,6 +7,12 @@ import 'package:myphoneconnection/services.dart';
 import 'package:flutter/material.dart';
 import 'package:photo_gallery/photo_gallery.dart';
 
+/*
+todolistdavida
+testar o caralho do protocolo duma maneira incrivel de forma a ters a puta da certeza que funciona
+ caralho
+*/
+
 int lastImageIndex = 0;
 ValueNotifier<List<Device>> globalDeviceListNotifier =
     ValueNotifier<List<Device>>([]);
@@ -132,7 +138,7 @@ class DeviceListWidget extends StatelessWidget {
   DeviceListWidget({Key? key, required this.devices}) : super(key: key);
 
   void tryConnection(Device device) {
-    ConnectionPC().startConnectionWithPc(device);
+    connectionPC.startConnectionWithPc(device);
   }
 
   @override

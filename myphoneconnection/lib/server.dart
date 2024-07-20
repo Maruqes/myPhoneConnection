@@ -13,7 +13,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 import "package:pointycastle/export.dart";
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-bool isConnected = false;
+ConnectionPC connectionPC = ConnectionPC();
 
 class Device {
   String hostname;
@@ -108,6 +108,8 @@ Future<List<Device>> scanNetwork(port) async {
 }
 
 class PairedDevices {
+  WebSocketConnection ws = WebSocketConnection();
+
   Future<void> clearAllConnectionSaves() async {
     int index = 0;
     ConnectionSave? oldSave = await readConnectionSave("connectionSave", index);
@@ -180,7 +182,7 @@ class PairedDevices {
     final String reply = await response.transform(utf8.decoder).join();
     if (reply == 'OK') {
       debugPrint('Trying after NextPass OK ${device.ip}');
-      await ConnectionPC().startConnectionWithPc(device);
+      await connectionPC.startConnectionWithPc(device);
     } else {
       debugPrint('Connection failed with ${device.ip}');
     }
@@ -242,7 +244,8 @@ class PairedDevices {
     }
   }
 
-  void setNextPasswordForConnection(Device device, WebSocketConnection ws) {
+  void setNextPasswordForConnection(Device device, WebSocketConnection ws_) {
+    ws = ws_;
     final nextPass = generateRandomBytes(16);
     final nextPassBase64 = base64.encode(nextPass);
     final data = "nextPass//$nextPassBase64";
@@ -260,8 +263,7 @@ class PairedDevices {
 class WebSocketConnection {
   late WebSocketChannel channel;
   late Uint8List key;
-
-  WebSocketConnection(this.key);
+  bool isConnected = false;
 
   void sendData(dynamic data) {
     final encData = encryptAES(key, data);
@@ -273,21 +275,37 @@ class WebSocketConnection {
     debugPrint('Recieved dec: $dec');
   }
 
-  void createWebSocket(Device device) {
+  void createWebSocket(Uint8List key_, Device device) {
+    key = key_;
+
     channel = WebSocketChannel.connect(
       Uri.parse('ws://${device.ip}:${device.port}/ws'),
     );
     channel.stream.listen((message) {
       recieveData(message);
-    });
-    sendData('Hello from phone');
+    }, onDone: () {
+      debugPrint('WebSocket done');
+      isConnected = false;
+    }, onError: (error) {
+      debugPrint('WebSocket error: $error');
+    }, cancelOnError: true);
+
+    sendData("ping");
+
+    isConnected = true;
+    debugPrint("WebSocket created");
+  }
+
+  bool checkWsConnection() {
+    return isConnected;
   }
 }
 
 class ConnectionPC {
   late Uint8List key;
   HttpClient clientPublic = HttpClient();
-  late WebSocketConnection ws;
+  WebSocketConnection ws = WebSocketConnection();
+  PairedDevices pairedDevices = PairedDevices();
 
   Uint8List decryptKey(privateKey, encryptedKey) {
     //reply is a encrypted message in base 64 decrypt it with private key
@@ -335,19 +353,21 @@ class ConnectionPC {
   }
 
   Future<void> startConnectionWithPc(Device device) async {
-    if (isConnected) {
+    if (ws.checkWsConnection()) {
       debugPrint('Already connected');
       return;
     }
     clientPublic = await askForConnection(device);
-    isConnected = true;
     debugPrint('Connected to ${device.ip}');
-    ws = WebSocketConnection(key);
-    ws.createWebSocket(device);
-    PairedDevices().setNextPasswordForConnection(device, ws);
+
+    ws.createWebSocket(key, device);
+
+    pairedDevices.setNextPasswordForConnection(device, ws);
   }
 
   Future<void> startProtocol(port) async {
+    debugPrint("con is ${ws.checkWsConnection()}");
+
     IsolateNameServer.lookupPortByName('clearDevices')?.send("");
 
     List<Device> devices = await scanNetwork(port);
@@ -358,9 +378,12 @@ class ConnectionPC {
           'Device found: ${devices[i].ip} with hostname: ${devices[i].hostname} and OS: ${devices[i].os} and CPU: ${devices[i].CPU} and RAM: ${devices[i].RAM} at port: ${devices[i].port}');
 
       final deviceJson = devices[i].toJson();
-      IsolateNameServer.lookupPortByName('addDevice')?.send(deviceJson);
+      IsolateNameServer.lookupPortByName('addDevice')?.send(deviceJson);//add a UI devices
 
       await PairedDevices().connectToAlreadyPairedDevice(devices[i]);
     }
   }
 }
+
+
+//check de desconnect e nao search if connected

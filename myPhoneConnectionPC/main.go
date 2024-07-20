@@ -90,6 +90,21 @@ func nextPassSave(s string) {
 func wsMessages(s string) {
 	if strings.Contains(s, "nextPass//") {
 		nextPassSave(s)
+	} else if strings.Contains(s, "imagetest") {
+		image_file := strings.Replace(s, "imagetest//", "", 1)
+
+		//convert string to []byte
+		image, err := base64.StdEncoding.DecodeString(image_file)
+		if err != nil {
+			log.Println("Error decoding image:", err)
+		}
+
+		//write this bytes in a file
+		err = os.WriteFile("image.jpg", image, 0644)
+		if err != nil {
+			log.Println("Error writing image:", err)
+		}
+
 	} else {
 		log.Println("WS:", s)
 	}
