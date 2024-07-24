@@ -333,7 +333,7 @@ class ConnectionPC {
     final HttpClientRequest request = await client.postUrl(
       Uri.parse('http://${device.ip}:${device.port}/connect'),
     );
-
+  
     request.headers.set('Content-Type', 'application/json');
     request.write(jsonEncode({
       'brand': androidInfo.brand,

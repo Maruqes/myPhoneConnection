@@ -110,7 +110,8 @@ func wsMessages(s string) {
 	}
 }
 
-func main() {
+func serverFunc() {
+
 	info := getPCstats()
 
 	key := []byte{}
@@ -208,4 +209,9 @@ func main() {
 
 	log.Printf("Server listening on port %s", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
+}
+
+func main() {
+	go serverFunc()
+	createUI()
 }
