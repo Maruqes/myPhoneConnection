@@ -2,11 +2,13 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"os"
 )
 
@@ -113,4 +115,32 @@ func ReadFromFile(filename string) ([]byte, error) {
 		return nil, err
 	}
 	return data, nil
+}
+
+func decompressData(data []byte) ([]byte, error) {
+	buf := bytes.NewBuffer(data)
+	gzipReader, err := gzip.NewReader(buf)
+	if err != nil {
+		return nil, err
+	}
+	defer gzipReader.Close()
+	decompressedData, err := ioutil.ReadAll(gzipReader)
+	if err != nil {
+		return nil, err
+	}
+	return decompressedData, nil
+}
+
+func compressData(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	gzipWriter := gzip.NewWriter(&buf)
+	_, err := gzipWriter.Write(data)
+	if err != nil {
+		return nil, err
+	}
+	err = gzipWriter.Close()
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }

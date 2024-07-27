@@ -88,18 +88,12 @@ Future<bool> onIosBackground(ServiceInstance service) async {
 
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
-  Timer.periodic(const Duration(seconds: 15), (timer) async {
+  Timer.periodic(const Duration(seconds: 10), (timer) async {
     debugPrint("Checking connection ${connectionPC.ws.checkWsConnection()}");
     if (connectionPC.ws.checkWsConnection() == false) {
       connectionPC.startProtocol(8080);
     } else {
-      final imageTest = await getImageFromGallery(1);
-      if (imageTest.isNotEmpty) {
-        final imageBytes = await imageTest[0].readAsBytes();
-        final imagesb64Bytes = base64.encode(imageBytes);
-        connectionPC.ws.sendData("imagetest//$imagesb64Bytes");
-      }
-      ;
+      
     }
   });
 }

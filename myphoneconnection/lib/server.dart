@@ -5,6 +5,7 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui';
 
+import 'dart:io';
 import 'package:myphoneconnection/config.dart';
 import 'package:flutter/material.dart';
 import 'package:myphoneconnection/main.dart';
@@ -12,6 +13,8 @@ import 'package:network_info_plus/network_info_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import "package:pointycastle/export.dart";
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:archive/archive.dart';
 
 ConnectionPC connectionPC = ConnectionPC();
 
@@ -264,15 +267,42 @@ class WebSocketConnection {
   late WebSocketChannel channel;
   late Uint8List key;
   bool isConnected = false;
+  int imagesIndex = 0;
+  int numberOfImages = 100;
 
-  void sendData(dynamic data) {
+  void sendData(String data) {
     final encData = encryptAES(key, data);
     channel.sink.add(encData);
   }
 
-  void recieveData(String data) {
+  Future<void> recieveData(String data) async {
     final dec = decryptAES(key, data);
+
     debugPrint('Recieved dec: $dec');
+    if (dec == "askImages") {
+      final imageTest =
+          await getImageFromGalleryWithIndex(numberOfImages, imagesIndex);
+      var resBytes = "";
+      debugPrint("ImageTest ready length: ${imageTest.length}");
+      if (imageTest.isNotEmpty) {
+        for (var image in imageTest) {
+          final imageBytes = await image.readAsBytes();
+
+          final res = await FlutterImageCompress.compressWithList(
+            imageBytes,
+            quality: 5,
+            format: CompressFormat.jpeg,
+          );
+          final compressedImage = compressData(res);
+          final imagesb64Bytes = base64.encode(compressedImage);
+          resBytes += "$imagesb64Bytes//DIVIDER//";
+          debugPrint("added image to");
+        }
+      }
+      debugPrint("resBytes length: ${resBytes.length}");
+      connectionPC.ws.sendData("imagetest//$resBytes");
+      imagesIndex += numberOfImages;
+    }
   }
 
   void createWebSocket(Uint8List key_, Device device) {
@@ -333,7 +363,7 @@ class ConnectionPC {
     final HttpClientRequest request = await client.postUrl(
       Uri.parse('http://${device.ip}:${device.port}/connect'),
     );
-  
+
     request.headers.set('Content-Type', 'application/json');
     request.write(jsonEncode({
       'brand': androidInfo.brand,
@@ -378,7 +408,8 @@ class ConnectionPC {
           'Device found: ${devices[i].ip} with hostname: ${devices[i].hostname} and OS: ${devices[i].os} and CPU: ${devices[i].CPU} and RAM: ${devices[i].RAM} at port: ${devices[i].port}');
 
       final deviceJson = devices[i].toJson();
-      IsolateNameServer.lookupPortByName('addDevice')?.send(deviceJson);//add a UI devices
+      IsolateNameServer.lookupPortByName('addDevice')
+          ?.send(deviceJson); //add a UI devices
 
       await PairedDevices().connectToAlreadyPairedDevice(devices[i]);
     }

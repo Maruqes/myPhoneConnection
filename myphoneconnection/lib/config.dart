@@ -8,6 +8,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import "package:pointycastle/export.dart";
+import 'package:archive/archive.dart';
 
 final storage = new FlutterSecureStorage();
 
@@ -158,4 +159,16 @@ String encryptAES(Uint8List key, String plainText) {
   var cipherTextWithIV = Uint8List.fromList(iv + cipherText);
 
   return base64.encode(cipherTextWithIV);
+}
+
+Uint8List compressData(Uint8List data) {
+  final gzipEncoder = GZipEncoder();
+  final compressedData = gzipEncoder.encode(data);
+  return Uint8List.fromList(compressedData!);
+}
+
+Uint8List decompressData(Uint8List data) {
+  final gzipDecoder = GZipDecoder();
+  final decompressedData = gzipDecoder.decodeBytes(data);
+  return Uint8List.fromList(decompressedData);
 }

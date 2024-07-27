@@ -38,6 +38,28 @@ Future<List<File>> getImageFromGallery(int numberOfImages) async {
   return imageFiles;
 }
 
+Future<List<File>> getImageFromGalleryWithIndex(
+    int numberOfImages, int index) async {
+  debugPrint("GETTING IMAGES");
+
+  final List<Album> imageAlbums = await PhotoGallery.listAlbums();
+  final MediaPage imagePage = await imageAlbums[0].listMedia(
+    skip: index,
+    take: numberOfImages,
+  );
+
+  lastImageIndex += numberOfImages;
+  final List<File> imageFiles = await Future.wait(imagePage.items
+      .where((Medium media) =>
+          media.filename!.contains("png") ||
+          media.filename!.contains("jpg") ||
+          media.filename!.contains("jpeg"))
+      .map((Medium media) => media.getFile())
+      .toList());
+
+  return imageFiles;
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await LocalNotificationService().init();
