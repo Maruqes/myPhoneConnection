@@ -93,7 +93,7 @@ func wsMessages(s string) {
 	} else if strings.Contains(s, "imagetest") {
 		image_file := strings.Replace(s, "imagetest//", "", 1)
 
-		add_cache_images(image_file)
+		addCacheImages(image_file)
 
 	} else {
 		log.Println("WS:", s)

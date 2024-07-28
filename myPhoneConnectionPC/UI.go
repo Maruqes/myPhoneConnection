@@ -2,11 +2,11 @@ package main
 
 import (
 	"encoding/base64"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 
 	"fyne.io/fyne/v2"
@@ -17,52 +17,68 @@ import (
 	"github.com/getlantern/systray"
 )
 
-//ter uma goroutine que fica perguntando por novas imagens
-//meter isto a funfar por paginas nao scroll infinito
+var (
+	mainApp        fyne.App
+	mainWindow     fyne.Window
+	imageGallery   *fyne.Container
+	cacheImages    []*canvas.Image
+	imgOffset      int
+	numberOfImages int
+	allImagesLen   int
+	loadingPhotos  bool
+	mutex          sync.Mutex
+)
 
-var mainApp fyne.App
-var mainWindow fyne.Window
-var imageGallery *fyne.Container
-var loadingPhotos bool
-var cacheImages []*canvas.Image
-var imgOffset int
-var all_images_len int
-var number_of_images int
+func addCacheImages(imgBytes string) {
+	log.Println("addCacheImages started")
+	imgArr := strings.Split(strings.TrimSuffix(imgBytes, "//DIVIDER//"), "//DIVIDER//")
 
-func add_cache_images(img_bytes string) { //add_cache_images runs instantly
-	log.Println("add_cache_images")
-	img_arr := strings.Split(img_bytes, "//DIVIDER//")
-	img_arr = img_arr[:len(img_arr)-1]
+	for _, img64 := range imgArr {
+		img, err := base64.StdEncoding.DecodeString(img64)
+		if err != nil {
+			log.Printf("Error decoding base64 image: %v", err)
+			continue
+		}
 
-	for _, img64 := range img_arr {
-		img64r := strings.Replace(img64, "//DIVIDER//", "", 1)
+		imgDecompressed, err := decompressData(img)
+		if err != nil {
+			log.Printf("Error decompressing image data: %v", err)
+			continue
+		}
 
-		img, _ := base64.StdEncoding.DecodeString(img64r)
-		imgDecompressed, _ := decompressData(img)
-
-		number_of_images++
-		all_images_len += len(imgDecompressed)
+		mutex.Lock()
+		numberOfImages++
+		allImagesLen += len(imgDecompressed)
+		mutex.Unlock()
 
 		newImg := canvas.NewImageFromResource(fyne.NewStaticResource("image", imgDecompressed))
 		if newImg == nil {
-			fmt.Println("newImg is nil")
+			log.Println("newImg is nil")
 			continue
 		}
 		newImg.FillMode = canvas.ImageFillContain
 		newImg.SetMinSize(fyne.NewSize(150, 150))
+
+		mutex.Lock()
 		cacheImages = append(cacheImages, newImg)
+		mutex.Unlock()
 	}
-	log.Println("add_cache_images done")
+	log.Println("addCacheImages completed")
 }
 
-func show_new_images_array() {
+func showNewImagesArray() {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	if loadingPhotos {
-		fmt.Printf("Loading photos\n")
+		log.Println("Loading photos is already in progress")
 		return
 	}
 
 	loadingPhotos = true
-	fmt.Println("show_new_image")
+	defer func() { loadingPhotos = false }()
+
+	log.Println("showNewImagesArray started")
 	imageGallery.RemoveAll()
 
 	batch := 25
@@ -70,7 +86,6 @@ func show_new_images_array() {
 		batch = len(cacheImages) - imgOffset
 	}
 
-	// Use Append to add images in one batch
 	imagesToAdd := make([]fyne.CanvasObject, 0, batch)
 	for i := imgOffset; i < imgOffset+batch; i++ {
 		imagesToAdd = append(imagesToAdd, cacheImages[i])
@@ -79,49 +94,50 @@ func show_new_images_array() {
 
 	imgOffset += batch
 	imageGallery.Refresh()
-	fmt.Println("show_new_image done")
-	loadingPhotos = false
+	log.Println("showNewImagesArray completed")
 }
 
-func add_new_images() {
+func addNewImages() {
 	if !ws.isConnectionAlive() {
+		log.Println("WebSocket connection is not alive")
 		return
 	}
 
-	fmt.Printf("Adding image\n")
+	log.Println("Requesting new images")
 	ws.sendData("askImages")
 }
 
 func createUI() {
 	imgOffset = 0
 	loadingPhotos = false
-	// Create a channel to handle OS signals for clean exit
+
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	// Initialize Fyne app
 	mainApp = app.New()
 	mainWindow = mainApp.NewWindow("Fyne App with Systray")
-
 	imageGallery = container.NewGridWithColumns(5)
 
-	button := widget.NewButton("get length of images", func() {
-		fmt.Println("number_of_images:", number_of_images)
-		fmt.Println("all_images_len:", all_images_len)
-		fmt.Println("cacheImages:", len(cacheImages))
+	button := widget.NewButton("Get Image Info", func() {
+		mutex.Lock()
+		defer mutex.Unlock()
+		log.Printf("number_of_images: %d", numberOfImages)
+		log.Printf("all_images_len: %d", allImagesLen)
+		log.Printf("cacheImages: %d", len(cacheImages))
 	})
-	buttonLeft := widget.NewButton("Clear Image", func() {
+
+	buttonLeft := widget.NewButton("Clear Images", func() {
 		imageGallery.RemoveAll()
 	})
-	buttonRight := widget.NewButton("Load Image", func() {
-		show_new_images_array()
+
+	buttonRight := widget.NewButton("Load Right Images", func() {
+		showNewImagesArray()
 	})
 
-	buttonCache := widget.NewButton("Cache Image", func() {
-		go add_new_images()
+	buttonCache := widget.NewButton("Cache Images", func() {
+		go addNewImages()
 	})
 
-	// Create a container with label and button widgets
 	content := container.NewVBox(
 		button,
 		buttonLeft,
@@ -130,9 +146,7 @@ func createUI() {
 		imageGallery,
 	)
 
-	// Set the content of the window
 	mainWindow.SetContent(content)
-
 	mainWindow.SetCloseIntercept(func() {
 		mainWindow.Hide()
 	})
@@ -145,7 +159,6 @@ func createUI() {
 	mainWindow.ShowAndRun()
 }
 
-// Called when systray is ready
 func onReady() {
 	systray.SetIcon(iconData)
 	systray.SetTitle("Fyne App")
@@ -166,9 +179,8 @@ func onReady() {
 	}()
 }
 
-// Called when systray is about to exit
 func onExit() {
-	fmt.Println("Systray exiting")
+	log.Println("Systray exiting")
 }
 
 var iconData = []byte{
