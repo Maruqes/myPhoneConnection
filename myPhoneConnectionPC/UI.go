@@ -81,7 +81,7 @@ func showNewImagesArray() {
 	log.Println("showNewImagesArray started")
 	imageGallery.RemoveAll()
 
-	batch := 25
+	batch := 12
 	if imgOffset+batch > len(cacheImages) {
 		batch = len(cacheImages) - imgOffset
 	}
@@ -116,7 +116,7 @@ func createUI() {
 
 	mainApp = app.New()
 	mainWindow = mainApp.NewWindow("Fyne App with Systray")
-	imageGallery = container.NewGridWithColumns(5)
+	imageGallery = container.NewAdaptiveGrid(3)
 
 	button := widget.NewButton("Get Image Info", func() {
 		mutex.Lock()
