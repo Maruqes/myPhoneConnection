@@ -15,6 +15,7 @@ import "package:pointycastle/export.dart";
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:archive/archive.dart';
+import 'package:myphoneconnection/galleryFunctions.dart';
 
 ConnectionPC connectionPC = ConnectionPC();
 
@@ -267,8 +268,7 @@ class WebSocketConnection {
   late WebSocketChannel channel;
   late Uint8List key;
   bool isConnected = false;
-  int imagesIndex = 0;
-  int numberOfImages = 100;
+  GalleryFunctions galleryFunctions = GalleryFunctions();
 
   void sendData(String data) {
     final encData = encryptAES(key, data);
@@ -280,28 +280,9 @@ class WebSocketConnection {
 
     debugPrint('Recieved dec: $dec');
     if (dec == "askImages") {
-      final imageTest =
-          await getImageFromGalleryWithIndex(numberOfImages, imagesIndex);
-      var resBytes = "";
-      debugPrint("ImageTest ready length: ${imageTest.length}");
-      if (imageTest.isNotEmpty) {
-        for (var image in imageTest) {
-          final imageBytes = await image.readAsBytes();
-
-          final res = await FlutterImageCompress.compressWithList(
-            imageBytes,
-            quality: 5,
-            format: CompressFormat.jpeg,
-          );
-          final compressedImage = compressData(res);
-          final imagesb64Bytes = base64.encode(compressedImage);
-          resBytes += "$imagesb64Bytes//DIVIDER//";
-          debugPrint("added image to");
-        }
-      }
-      debugPrint("resBytes length: ${resBytes.length}");
-      connectionPC.ws.sendData("imagetest//$resBytes");
-      imagesIndex += numberOfImages;
+      galleryFunctions.sendImages();
+    } else if (dec == "firstImages") {
+      galleryFunctions.sendFirstImages();
     }
   }
 
@@ -320,7 +301,7 @@ class WebSocketConnection {
       debugPrint('WebSocket error: $error');
     }, cancelOnError: true);
 
-    sendData("ping");
+    sendData("createdSocket");
 
     isConnected = true;
     debugPrint("WebSocket created");

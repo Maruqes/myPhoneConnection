@@ -29,6 +29,30 @@ var (
 	mutex          sync.Mutex
 )
 
+const IMAGES_WIDTH = 150
+
+// func resizeImage(img []byte, width uint) ([]byte, error) {
+// 	imgDecoded, _, err := image.Decode(bytes.NewReader(img))
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	imgWidth := imgDecoded.Bounds().Dx()
+// 	imgHeight := imgDecoded.Bounds().Dy()
+// 	log.Println(imgWidth, imgHeight)
+
+// 	dif := float64(width) / float64(imgWidth)
+// 	lastHeight := float64(imgHeight) * dif
+
+// 	imgResized := resize.Resize(width, uint(lastHeight), imgDecoded, resize.Lanczos3)
+// 	buf := new(bytes.Buffer)
+// 	err = jpeg.Encode(buf, imgResized, nil)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	return buf.Bytes(), nil
+// }
+
 func addCacheImages(imgBytes string) {
 	log.Println("addCacheImages started")
 	imgArr := strings.Split(strings.TrimSuffix(imgBytes, "//DIVIDER//"), "//DIVIDER//")
@@ -46,6 +70,9 @@ func addCacheImages(imgBytes string) {
 			continue
 		}
 
+		//imgDecompressed is a image need to  make it 150x150
+		// imgResized, _ := resizeImage(imgDecompressed, IMAGES_WIDTH)
+
 		mutex.Lock()
 		numberOfImages++
 		allImagesLen += len(imgDecompressed)
@@ -57,7 +84,7 @@ func addCacheImages(imgBytes string) {
 			continue
 		}
 		newImg.FillMode = canvas.ImageFillContain
-		newImg.SetMinSize(fyne.NewSize(150, 150))
+		newImg.SetMinSize(fyne.NewSize(IMAGES_WIDTH, IMAGES_WIDTH)) //used IMAGES_WIDTH on both width and height to make it square
 
 		mutex.Lock()
 		cacheImages = append(cacheImages, newImg)
@@ -105,6 +132,16 @@ func addNewImages() {
 
 	log.Println("Requesting new images")
 	ws.sendData("askImages")
+}
+
+func addFIRSTImages() {
+	if !ws.isConnectionAlive() {
+		log.Println("WebSocket connection is not alive")
+		return
+	}
+
+	log.Println("Requesting new images")
+	ws.sendData("firstImages")
 }
 
 func createUI() {

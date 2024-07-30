@@ -13,52 +13,8 @@ testar o caralho do protocolo duma maneira incrivel de forma a ters a puta da ce
  caralho
 */
 
-int lastImageIndex = 0;
 ValueNotifier<List<Device>> globalDeviceListNotifier =
     ValueNotifier<List<Device>>([]);
-
-Future<List<File>> getImageFromGallery(int numberOfImages) async {
-  debugPrint("GETTING IMAGES");
-
-  final List<Album> imageAlbums = await PhotoGallery.listAlbums();
-  final MediaPage imagePage = await imageAlbums[0].listMedia(
-    skip: lastImageIndex,
-    take: numberOfImages,
-  );
-
-  lastImageIndex += numberOfImages;
-  final List<File> imageFiles = await Future.wait(imagePage.items
-      .where((Medium media) =>
-          media.filename!.contains("png") ||
-          media.filename!.contains("jpg") ||
-          media.filename!.contains("jpeg"))
-      .map((Medium media) => media.getFile())
-      .toList());
-
-  return imageFiles;
-}
-
-Future<List<File>> getImageFromGalleryWithIndex(
-    int numberOfImages, int index) async {
-  debugPrint("GETTING IMAGES");
-
-  final List<Album> imageAlbums = await PhotoGallery.listAlbums();
-  final MediaPage imagePage = await imageAlbums[0].listMedia(
-    skip: index,
-    take: numberOfImages,
-  );
-
-  lastImageIndex += numberOfImages;
-  final List<File> imageFiles = await Future.wait(imagePage.items
-      .where((Medium media) =>
-          media.filename!.contains("png") ||
-          media.filename!.contains("jpg") ||
-          media.filename!.contains("jpeg"))
-      .map((Medium media) => media.getFile())
-      .toList());
-
-  return imageFiles;
-}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

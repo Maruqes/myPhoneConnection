@@ -95,6 +95,8 @@ func wsMessages(s string) {
 
 		addCacheImages(image_file)
 
+	} else if s == "createdSocket" {
+		addFIRSTImages()
 	} else {
 		log.Println("WS:", s)
 	}
@@ -169,8 +171,6 @@ func serverFunc() {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
-		//deve aqui aceitar o dispositivo
 
 		// Access the JSON data
 		fullPassb64 := data["fullPass"].(string)
