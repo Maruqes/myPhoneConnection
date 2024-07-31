@@ -93,10 +93,21 @@ func wsMessages(s string) {
 	} else if strings.Contains(s, "imagetest") {
 		image_file := strings.Replace(s, "imagetest//", "", 1)
 
-		addCacheImages(image_file)
+		addCacheImages(image_file, false)
 
+	} else if strings.Contains(s, "imageFirst") {
+		image_file := strings.Replace(s, "imageFirst//", "", 1)
+
+		addCacheImages(image_file, false)
+		loadCurrentImages()
 	} else if s == "createdSocket" {
 		addFIRSTImages()
+	} else if strings.Contains(s, "updateGallery//") {
+		image_file := strings.Replace(s, "updateGallery//", "", 1)
+
+		addCacheImages(image_file, true)
+		loadCurrentImages()
+
 	} else {
 		log.Println("WS:", s)
 	}

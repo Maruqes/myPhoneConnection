@@ -2,9 +2,11 @@ package main
 
 import (
 	"encoding/base64"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -13,6 +15,7 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 	"github.com/getlantern/systray"
 )
@@ -27,6 +30,11 @@ var (
 	allImagesLen   int
 	loadingPhotos  bool
 	mutex          sync.Mutex
+)
+
+var (
+	imgNumberFooter    *widget.Label
+	maxImgNumberFooter *widget.Label
 )
 
 const IMAGES_WIDTH = 150
@@ -53,52 +61,101 @@ const IMAGES_WIDTH = 150
 // 	return buf.Bytes(), nil
 // }
 
-func addCacheImages(imgBytes string) {
+func updateUI() {
+	imgNumberFooter.SetText(strconv.Itoa(imgOffset))
+	maxImgNumberFooter.SetText(strconv.Itoa(numberOfImages))
+
+	imageGallery.Refresh()
+	imgNumberFooter.Refresh()
+	maxImgNumberFooter.Refresh()
+
+}
+
+func processImage(img64 string) (*canvas.Image, error) {
+	img, err := base64.StdEncoding.DecodeString(img64)
+	if err != nil {
+		log.Printf("Error decoding base64 image: %v", err)
+		return nil, err
+	}
+
+	imgDecompressed, err := decompressData(img)
+	if err != nil {
+		log.Printf("Error decompressing image data: %v", err)
+		return nil, err
+	}
+
+	//imgDecompressed is a image need to  make it 150x150
+	// imgResized, _ := resizeImage(imgDecompressed, IMAGES_WIDTH)
+
+	mutex.Lock()
+	numberOfImages++
+	allImagesLen += len(imgDecompressed)
+	mutex.Unlock()
+
+	newImg := canvas.NewImageFromResource(fyne.NewStaticResource("image", imgDecompressed))
+	if newImg == nil {
+		log.Println("newImg is nil")
+		return nil, fmt.Errorf("newImg is nil")
+	}
+	newImg.FillMode = canvas.ImageFillContain
+	newImg.SetMinSize(fyne.NewSize(IMAGES_WIDTH, IMAGES_WIDTH)) //used IMAGES_WIDTH on both width and height to make it square
+
+	return newImg, nil
+}
+
+func addCacheImages(imgBytes string, first bool) {
 	log.Println("addCacheImages started")
 	imgArr := strings.Split(strings.TrimSuffix(imgBytes, "//DIVIDER//"), "//DIVIDER//")
 
 	for _, img64 := range imgArr {
-		img, err := base64.StdEncoding.DecodeString(img64)
+		newImg, err := processImage(img64)
 		if err != nil {
-			log.Printf("Error decoding base64 image: %v", err)
 			continue
 		}
-
-		imgDecompressed, err := decompressData(img)
-		if err != nil {
-			log.Printf("Error decompressing image data: %v", err)
-			continue
-		}
-
-		//imgDecompressed is a image need to  make it 150x150
-		// imgResized, _ := resizeImage(imgDecompressed, IMAGES_WIDTH)
-
 		mutex.Lock()
-		numberOfImages++
-		allImagesLen += len(imgDecompressed)
-		mutex.Unlock()
-
-		newImg := canvas.NewImageFromResource(fyne.NewStaticResource("image", imgDecompressed))
-		if newImg == nil {
-			log.Println("newImg is nil")
-			continue
+		if first {
+			cacheImages = append([]*canvas.Image{newImg}, cacheImages...)
+		} else {
+			cacheImages = append(cacheImages, newImg)
 		}
-		newImg.FillMode = canvas.ImageFillContain
-		newImg.SetMinSize(fyne.NewSize(IMAGES_WIDTH, IMAGES_WIDTH)) //used IMAGES_WIDTH on both width and height to make it square
-
-		mutex.Lock()
-		cacheImages = append(cacheImages, newImg)
 		mutex.Unlock()
 	}
 	log.Println("addCacheImages completed")
+	updateUI()
+	addNewImages()
 }
 
-func showNewImagesArray() {
+func calculateImagesToAdd(batch int, length int) []fyne.CanvasObject {
+	if imgOffset+batch > len(cacheImages) {
+		batch = len(cacheImages) - imgOffset
+	}
+
+	if imgOffset+batch < 0 {
+		batch = -imgOffset
+	}
+
+	imgOffset += batch
+
+	imagesToAdd := make([]fyne.CanvasObject, 0, length)
+	for i := imgOffset; i < imgOffset+length; i++ {
+		if i >= len(cacheImages) {
+			break
+		}
+		imagesToAdd = append(imagesToAdd, cacheImages[i])
+	}
+	return imagesToAdd
+}
+
+func showNewImagesArray(batch int, length int) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
 	if loadingPhotos {
 		log.Println("Loading photos is already in progress")
+		return
+	}
+
+	if (imgOffset+batch >= len(cacheImages)) || imgOffset+batch < 0 {
 		return
 	}
 
@@ -108,20 +165,23 @@ func showNewImagesArray() {
 	log.Println("showNewImagesArray started")
 	imageGallery.RemoveAll()
 
-	batch := 12
-	if imgOffset+batch > len(cacheImages) {
-		batch = len(cacheImages) - imgOffset
-	}
+	imagesToAdd := calculateImagesToAdd(batch, length)
 
-	imagesToAdd := make([]fyne.CanvasObject, 0, batch)
-	for i := imgOffset; i < imgOffset+batch; i++ {
-		imagesToAdd = append(imagesToAdd, cacheImages[i])
-	}
 	imageGallery.Objects = append(imageGallery.Objects, imagesToAdd...)
 
-	imgOffset += batch
-	imageGallery.Refresh()
+	updateUI()
 	log.Println("showNewImagesArray completed")
+}
+func loadCurrentImages() {
+	showNewImagesArray(0, 12)
+}
+
+func loadRightImages() {
+	showNewImagesArray(12, 12)
+}
+
+func loadLeftImages() {
+	showNewImagesArray(-12, 12)
 }
 
 func addNewImages() {
@@ -163,17 +223,22 @@ func createUI() {
 		log.Printf("cacheImages: %d", len(cacheImages))
 	})
 
-	buttonLeft := widget.NewButton("Clear Images", func() {
-		imageGallery.RemoveAll()
+	buttonLeft := widget.NewButton("Load Left Images", func() {
+		loadLeftImages()
 	})
 
 	buttonRight := widget.NewButton("Load Right Images", func() {
-		showNewImagesArray()
+		loadRightImages()
 	})
 
 	buttonCache := widget.NewButton("Cache Images", func() {
 		go addNewImages()
 	})
+
+	imgNumberFooter = widget.NewLabel(strconv.Itoa(imgOffset))
+	maxImgNumberFooter = widget.NewLabel(strconv.Itoa(numberOfImages))
+
+	footer := container.New(layout.NewHBoxLayout(), layout.NewSpacer(), imgNumberFooter, layout.NewSpacer(), maxImgNumberFooter, layout.NewSpacer())
 
 	content := container.NewVBox(
 		button,
@@ -181,6 +246,8 @@ func createUI() {
 		buttonRight,
 		buttonCache,
 		imageGallery,
+		layout.NewSpacer(), // Adds space between the main content and footer
+		footer,
 	)
 
 	mainWindow.SetContent(content)
@@ -192,7 +259,7 @@ func createUI() {
 		systray.Run(onReady, onExit)
 	}()
 
-	mainWindow.Resize(fyne.NewSize(1000, 1000))
+	mainWindow.Resize(fyne.NewSize(1000, 800))
 	mainWindow.ShowAndRun()
 }
 
