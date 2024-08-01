@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/base64"
 	"fmt"
+	"image/color"
 	"log"
 	"os"
 	"os/signal"
@@ -24,7 +25,7 @@ var (
 	mainApp        fyne.App
 	mainWindow     fyne.Window
 	imageGallery   *fyne.Container
-	cacheImages    []*canvas.Image
+	cacheImages    []*ImageButton
 	imgOffset      int
 	numberOfImages int
 	allImagesLen   int
@@ -61,6 +62,108 @@ const IMAGES_WIDTH = 150
 // 	return buf.Bytes(), nil
 // }
 
+//ao add new images at the start the index get fucked fix that
+
+type ImageButton struct {
+	widget.BaseWidget
+	Image    *canvas.Image
+	OnTapped func()
+	index    int
+}
+
+func NewImageButtonFromFile(img *canvas.Image, onTapped func(), width float32, heigth float32) *ImageButton {
+	button := &ImageButton{Image: img, OnTapped: onTapped}
+	button.ExtendBaseWidget(button)
+	img.SetMinSize(fyne.NewSize(width, heigth)) // Set image size explicitly
+	return button
+}
+
+func (b *ImageButton) CreateRenderer() fyne.WidgetRenderer {
+	return widget.NewSimpleRenderer(b.Image)
+}
+
+func (b *ImageButton) Tapped(ev *fyne.PointEvent) {
+	if b.OnTapped != nil {
+		b.OnTapped()
+	}
+}
+
+func showVideoInModal(vid64 string) {
+	// vid, err := base64.StdEncoding.DecodeString(vid64)
+	// if err != nil {
+	// 	log.Printf("Error decoding base64 image: %v", err)
+	// 	return
+	// }
+
+	// vidDecompressed, err := decompressData(vid)
+	// if err != nil {
+	// 	log.Printf("Error decompressing image data: %v", err)
+	// 	return
+	// }
+
+	//vidDecompressed
+	videoHTML := `<iframe width="560" height="315" src="https://www.youtube.com/embed/dQw4w9WgXcQ" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`
+	webView := widget.NewLabel(videoHTML)
+    content := container.NewScroll(webView)
+	mainWindow.Canvas().Overlays().Add(content)
+
+	log.Println("showImageInModal completed")
+}
+
+func showImageInModal(img64 string) {
+	img, err := base64.StdEncoding.DecodeString(img64)
+	if err != nil {
+		log.Printf("Error decoding base64 image: %v", err)
+		return
+	}
+
+	imgDecompressed, err := decompressData(img)
+	if err != nil {
+		log.Printf("Error decompressing image data: %v", err)
+		return
+	}
+
+	newImg := canvas.NewImageFromResource(fyne.NewStaticResource("image", imgDecompressed))
+	if newImg == nil {
+		log.Println("newImg is nil")
+		return
+	}
+	newImg.FillMode = canvas.ImageFillContain
+
+	imgWidth := 500
+	imgHeight := (newImg.MinSize().Height * float32(imgWidth)) / newImg.MinSize().Width
+
+	tappableImg := NewImageButtonFromFile(newImg, func() {}, float32(imgWidth), imgHeight)
+	tappableImg.Move(fyne.NewPos(mainWindow.Canvas().Size().Width/2-newImg.MinSize().Width/2, mainWindow.Canvas().Size().Height/2-newImg.MinSize().Height/2))
+
+	mainWindow.Canvas().Overlays().Add(tappableImg)
+
+	overlay := canvas.NewRectangle(&color.RGBA{0, 0, 0, 128})
+	windowSize := mainWindow.Canvas().Size()
+	overlay.Resize(fyne.NewSize(windowSize.Width, windowSize.Height))
+
+	modal := container.NewWithoutLayout(overlay)
+
+	mainWindow.Canvas().Overlays().Add(modal)
+	mainWindow.Canvas().Overlays().Add(tappableImg)
+
+	tappableImg.OnTapped = func() {
+		mainWindow.Canvas().Overlays().Remove(modal)
+		mainWindow.Canvas().Overlays().Remove(tappableImg)
+	}
+	log.Println("showImageInModal completed")
+}
+
+func askForFullImageForModal(index int) {
+	if !ws.isConnectionAlive() {
+		log.Println("WebSocket connection is not alive")
+		return
+	}
+
+	log.Println("Requesting full image")
+	ws.sendData(fmt.Sprintf("askFullImage//%d", index-1))
+}
+
 func updateUI() {
 	imgNumberFooter.SetText(strconv.Itoa(imgOffset))
 	maxImgNumberFooter.SetText(strconv.Itoa(numberOfImages))
@@ -84,7 +187,6 @@ func processImage(img64 string) (*canvas.Image, error) {
 		return nil, err
 	}
 
-	//imgDecompressed is a image need to  make it 150x150
 	// imgResized, _ := resizeImage(imgDecompressed, IMAGES_WIDTH)
 
 	mutex.Lock()
@@ -104,25 +206,37 @@ func processImage(img64 string) (*canvas.Image, error) {
 }
 
 func addCacheImages(imgBytes string, first bool) {
+	lastIndex := 0
+	if len(cacheImages) > 0 {
+		lastIndex = cacheImages[len(cacheImages)-1].index
+	}
+
 	log.Println("addCacheImages started")
 	imgArr := strings.Split(strings.TrimSuffix(imgBytes, "//DIVIDER//"), "//DIVIDER//")
-
-	for _, img64 := range imgArr {
+	for i, img64 := range imgArr {
 		newImg, err := processImage(img64)
 		if err != nil {
 			continue
 		}
+
+		tappableImg := NewImageButtonFromFile(newImg, func() {}, IMAGES_WIDTH, IMAGES_WIDTH)
+		tappableImg.index = i + lastIndex + 1
+		tappableImg.OnTapped = func() {
+			log.Printf("Tapped image %d", tappableImg.index)
+			askForFullImageForModal(tappableImg.index)
+		}
+
 		mutex.Lock()
 		if first {
-			cacheImages = append([]*canvas.Image{newImg}, cacheImages...)
+			cacheImages = append([]*ImageButton{tappableImg}, cacheImages...)
 		} else {
-			cacheImages = append(cacheImages, newImg)
+			cacheImages = append(cacheImages, tappableImg)
 		}
 		mutex.Unlock()
 	}
 	log.Println("addCacheImages completed")
 	updateUI()
-	addNewImages()
+	// addNewImages()
 }
 
 func calculateImagesToAdd(batch int, length int) []fyne.CanvasObject {

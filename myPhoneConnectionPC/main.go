@@ -108,6 +108,11 @@ func wsMessages(s string) {
 		addCacheImages(image_file, true)
 		loadCurrentImages()
 
+	} else if strings.Contains(s, "fullImage//") {
+		image_file := strings.Replace(s, "fullImage//", "", 1)
+
+		showVideoInModal(image_file)
+
 	} else {
 		log.Println("WS:", s)
 	}

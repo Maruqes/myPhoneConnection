@@ -8,8 +8,11 @@ import 'package:myphoneconnection/server.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:myphoneconnection/galleryFunctions.dart';
 
 class ListenToPort {
+  List<Device> devicesTempToAdd = [];
+
   void initListenPort() {
     ReceivePort port = ReceivePort();
     IsolateNameServer.registerPortWithName(port.sendPort, 'addDevice');
@@ -23,15 +26,21 @@ class ListenToPort {
         device['ip'],
         device['port'],
       );
-      globalDeviceListNotifier.value = List.from(globalDeviceListNotifier.value)
-        ..add(newDevice);
+
+      devicesTempToAdd = List.from(devicesTempToAdd)..add(newDevice);
     });
 
     ReceivePort port2 = ReceivePort();
     IsolateNameServer.registerPortWithName(port2.sendPort, 'clearDevices');
     // Listen for messages from the background isolate
     port2.listen((_) {
-      globalDeviceListNotifier.value = List.empty(growable: true);
+      devicesTempToAdd = List.empty(growable: true);
+    });
+
+    ReceivePort port3 = ReceivePort();
+    IsolateNameServer.registerPortWithName(port3.sendPort, 'setDevices');
+    port3.listen((_) {
+      globalDeviceListNotifier.value = List.from(devicesTempToAdd);
     });
   }
 }
@@ -88,13 +97,13 @@ Future<bool> onIosBackground(ServiceInstance service) async {
 
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
-  Timer.periodic(const Duration(seconds: 10), (timer) async {
+  Timer.periodic(const Duration(seconds: 5), (timer) async {
+    publicGallery.checkNumberOfImagesOnGallery();
+
     debugPrint("Checking connection ${connectionPC.ws.checkWsConnection()}");
     if (connectionPC.ws.checkWsConnection() == false) {
       connectionPC.startProtocol(8080);
-    } else {
-      
-    }
+    } else {}
   });
 }
 

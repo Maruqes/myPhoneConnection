@@ -44,6 +44,7 @@ class Device {
 }
 
 class ConnectionSave {
+  //falta desemparelhar function
   Device device;
   Uint8List nextPass;
 
@@ -86,7 +87,7 @@ Future<List<Device>> scanNetwork(port) async {
       List<Future> futures = [];
       for (var i = 0; i < 256; i++) {
         String ip = '$subnet.$i';
-        debugPrint('Scanning IP: $ip:$port');
+        // debugPrint('Scanning IP: $ip:$port');
         try {
           Future future = checkIpConnection(ip, port, androidInfo.brand,
                   androidInfo.model, androidInfo.id)
@@ -119,7 +120,7 @@ class PairedDevices {
     ConnectionSave? oldSave = await readConnectionSave("connectionSave", index);
 
     while (oldSave != null) {
-      deleteData("connectionSave$index");
+      await deleteData("connectionSave$index");
       index++;
       oldSave = await readConnectionSave("connectionSave", index);
     }
@@ -154,7 +155,7 @@ class PairedDevices {
           oldSave.device.os == device.os &&
           oldSave.device.CPU == device.CPU &&
           oldSave.device.RAM == device.RAM) {
-        writeData("connectionSave$index", jsonEncode(save.toJson()));
+        await writeData("connectionSave$index", jsonEncode(save.toJson()));
         debugPrint('Connection saved on index $index');
         return;
       }
@@ -163,12 +164,75 @@ class PairedDevices {
       oldSave = await readConnectionSave("connectionSave", index);
     }
 
-    writeData("connectionSave$index", jsonEncode(save.toJson()));
+    await writeData("connectionSave$index", jsonEncode(save.toJson()));
     debugPrint('Connection saved on index $index');
   }
 
+  Future<void> deleteConnectionSave(ConnectionSave save, Device device) async {
+    ConnectionSave? oldSave = await readConnectionSave("connectionSave", 0);
+    int index = 0;
+    while (oldSave != null) {
+      if (oldSave.device.hostname == device.hostname &&
+          oldSave.device.os == device.os &&
+          oldSave.device.CPU == device.CPU &&
+          oldSave.device.RAM == device.RAM) {
+        await deleteData("connectionSave$index");
+        debugPrint('Connection deleted on index $index');
+
+        //pass next connections 1 index back
+        index++;
+        oldSave = await readConnectionSave("connectionSave", index);
+        while (oldSave != null) {
+          await writeData(
+              "connectionSave${index - 1}", jsonEncode(oldSave.toJson()));
+          await deleteData("connectionSave$index");
+          index++;
+          oldSave = await readConnectionSave("connectionSave", index);
+        }
+        return;
+      }
+
+      index++;
+      oldSave = await readConnectionSave("connectionSave", index);
+    }
+  }
+
+  Future<void> printAllConnectionSave() async {
+    debugPrint("Printing all connection saves");
+    int index = 0;
+    ConnectionSave? oldSave = await readConnectionSave("connectionSave", index);
+
+    while (oldSave != null) {
+      debugPrint(
+          'Old save($index): ${oldSave.device.hostname} with CPU ${oldSave.device.CPU} and RAM ${oldSave.device.RAM}');
+      index++;
+      oldSave = await readConnectionSave("connectionSave", index);
+    }
+  }
+
+  Future<void> createTestConnectionSave() async {
+    const numberOfTestConnections = 5;
+
+    for (int i = 0; i < numberOfTestConnections; i++) {
+      final device = Device(
+        'TestDevice$i',
+        'TestOS$i',
+        'TestCPU$i',
+        'TestRAM$i',
+        '192.168.1.$i',
+        '8080',
+      );
+
+      final nextPass = generateRandomBytes(16);
+      final save = ConnectionSave(device, nextPass);
+
+      await writeConnectionSave(save, device);
+      debugPrint('Test connection save $i created');
+    }
+  }
+
   Future<void> checkNextPasswordProtocolLast(
-      Device device, Uint8List nextPass) async {
+      Device device, ConnectionSave oldSave) async {
     //clear connection save FALTA DAR CLEAR CARALHO
 
     final HttpClient client = HttpClient();
@@ -179,7 +243,7 @@ class PairedDevices {
 
     request.headers.set('Content-Type', 'application/json');
     request.write(jsonEncode({
-      'fullPass': base64.encode(nextPass),
+      'fullPass': base64.encode(oldSave.nextPass),
     }));
 
     final HttpClientResponse response = await request.close();
@@ -189,11 +253,12 @@ class PairedDevices {
       await connectionPC.startConnectionWithPc(device);
     } else {
       debugPrint('Connection failed with ${device.ip}');
+      deleteConnectionSave(oldSave, device);
     }
   }
 
   Future<void> checkNextPasswordProtocol(
-      Device device, Uint8List nextPass) async {
+      Device device, ConnectionSave oldSave) async {
     final HttpClient client = HttpClient();
     client.connectionTimeout = const Duration(seconds: 3);
     final HttpClientRequest request = await client.get(
@@ -204,13 +269,14 @@ class PairedDevices {
     final HttpClientResponse response = await request.close();
     final String reply = await response.transform(utf8.decoder).join();
 
-    final last8Bytes = nextPass.sublist(8, 16);
+    final last8Bytes = oldSave.nextPass.sublist(8, 16);
     final last8BytesBase64 = base64.encode(last8Bytes);
     if (reply == last8BytesBase64) {
       debugPrint('Connection is going with ${device.ip}');
-      await checkNextPasswordProtocolLast(device, nextPass);
+      await checkNextPasswordProtocolLast(device, oldSave);
     } else {
       debugPrint('Connection failed with ${device.ip}');
+      deleteConnectionSave(oldSave, device);
     }
   }
 
@@ -223,7 +289,7 @@ class PairedDevices {
       if (oldSave?.device.hostname == null ||
           oldSave?.device.CPU == null ||
           oldSave?.device.RAM == null) {
-        deleteData("connectionSave$index");
+        await deleteData("connectionSave$index");
         index++;
         continue;
       }
@@ -238,7 +304,7 @@ class PairedDevices {
             oldSave.device.RAM == device.RAM) {
           debugPrint(
               'Found matching save ${device.hostname} with CPU ${device.CPU} and RAM ${device.RAM}');
-          await checkNextPasswordProtocol(device, oldSave.nextPass);
+          await checkNextPasswordProtocol(device, oldSave);
           return;
         }
       }
@@ -264,6 +330,8 @@ class PairedDevices {
   }
 }
 
+//when sending new img after killin app it crashes:D
+//and is trying to connect 2 times , think is about the 3 seconds
 class WebSocketConnection {
   late WebSocketChannel channel;
   late Uint8List key;
@@ -283,6 +351,9 @@ class WebSocketConnection {
       galleryFunctions.sendImages();
     } else if (dec == "firstImages") {
       galleryFunctions.sendFirstImages();
+    } else if (dec.contains("askFullImage//")) {
+      final index = int.parse(dec.split("//")[1]);
+      galleryFunctions.sendFullImage(index);
     }
   }
 
@@ -297,6 +368,7 @@ class WebSocketConnection {
     }, onDone: () {
       debugPrint('WebSocket done');
       isConnected = false;
+      connectionPC = ConnectionPC();
     }, onError: (error) {
       debugPrint('WebSocket error: $error');
     }, cancelOnError: true);
@@ -377,6 +449,7 @@ class ConnectionPC {
   }
 
   Future<void> startProtocol(port) async {
+    await pairedDevices.printAllConnectionSave();
     debugPrint("con is ${ws.checkWsConnection()}");
 
     IsolateNameServer.lookupPortByName('clearDevices')?.send("");
@@ -394,6 +467,7 @@ class ConnectionPC {
 
       await PairedDevices().connectToAlreadyPairedDevice(devices[i]);
     }
+    IsolateNameServer.lookupPortByName('setDevices')?.send("");
   }
 }
 
