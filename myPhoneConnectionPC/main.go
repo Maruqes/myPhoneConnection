@@ -111,6 +111,11 @@ func wsMessages(s string) {
 	} else if strings.Contains(s, "fullImage//") {
 		image_file := strings.Replace(s, "fullImage//", "", 1)
 
+		showImageInModal(image_file)
+
+	} else if strings.Contains(s, "fullVIDEO//") {
+		image_file := strings.Replace(s, "fullVIDEO//", "", 1)
+
 		showVideoInModal(image_file)
 
 	} else {

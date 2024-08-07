@@ -97,7 +97,8 @@ Future<bool> onIosBackground(ServiceInstance service) async {
 
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
-  Timer.periodic(const Duration(seconds: 5), (timer) async {
+  publicGallery.initGallery();
+  Timer.periodic(const Duration(seconds: 10), (timer) async {
     publicGallery.checkNumberOfImagesOnGallery();
 
     debugPrint("Checking connection ${connectionPC.ws.checkWsConnection()}");

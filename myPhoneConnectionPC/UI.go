@@ -11,14 +11,17 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
 	"github.com/getlantern/systray"
+	"github.com/metal3d/fyne-streamer/video"
 )
 
 var (
@@ -31,6 +34,7 @@ var (
 	allImagesLen   int
 	loadingPhotos  bool
 	mutex          sync.Mutex
+	addingImages   bool
 )
 
 var (
@@ -88,26 +92,71 @@ func (b *ImageButton) Tapped(ev *fyne.PointEvent) {
 	}
 }
 
+func showVideoInModal2(file string) {
+	u := storage.NewFileURI(file)
+	viewer := video.NewPlayer()
+	viewer.Open(u)
+
+	viewer.SetMinSize(fyne.NewSize(800, 600))
+
+	var modal *widget.PopUp
+
+	quitButton := widget.NewButton("Quit", func() {
+		modal.Hide()
+		mainWindow.Canvas().Overlays().Remove(modal)
+		viewer.Stop()
+	})
+	content := container.NewVBox(viewer, quitButton)
+
+	modal = widget.NewModalPopUp(content, mainWindow.Canvas())
+
+	modal.Show()
+
+	viewer.Play()
+
+	// Detect ESC key press
+	mainWindow.Canvas().SetOnTypedKey(func(keyEvent *fyne.KeyEvent) {
+		if keyEvent.Name == fyne.KeyEscape {
+			modal.Hide()
+			mainWindow.Canvas().Overlays().Remove(modal)
+			viewer.Stop()
+
+			mainWindow.Canvas().SetOnTypedKey(func(keyEvent *fyne.KeyEvent) {
+			})
+		}
+	})
+
+}
+
 func showVideoInModal(vid64 string) {
-	// vid, err := base64.StdEncoding.DecodeString(vid64)
-	// if err != nil {
-	// 	log.Printf("Error decoding base64 image: %v", err)
-	// 	return
-	// }
+	vid, err := base64.StdEncoding.DecodeString(vid64)
+	if err != nil {
+		log.Printf("Error decoding base64 image: %v", err)
+		return
+	}
 
-	// vidDecompressed, err := decompressData(vid)
-	// if err != nil {
-	// 	log.Printf("Error decompressing image data: %v", err)
-	// 	return
-	// }
+	vidDecompressed, err := decompressData(vid)
+	if err != nil {
+		log.Printf("Error decompressing image data: %v", err)
+		return
+	}
 
-	//vidDecompressed
-	videoHTML := `<iframe width="560" height="315" src="https://www.youtube.com/embed/dQw4w9WgXcQ" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`
-	webView := widget.NewLabel(videoHTML)
-    content := container.NewScroll(webView)
-	mainWindow.Canvas().Overlays().Add(content)
+	//save video .mp4
+	file, err := os.CreateTemp("", "video*.mp4")
+	if err != nil {
+		log.Printf("Error creating video file: %v", err)
+		return
+	}
+	defer file.Close()
 
-	log.Println("showImageInModal completed")
+	_, err = file.Write(vidDecompressed)
+	if err != nil {
+		log.Printf("Error writing video data to file: %v", err)
+		return
+	}
+
+	log.Println("Video saved successfully")
+	showVideoInModal2(file.Name())
 }
 
 func showImageInModal(img64 string) {
@@ -147,6 +196,15 @@ func showImageInModal(img64 string) {
 	mainWindow.Canvas().Overlays().Add(modal)
 	mainWindow.Canvas().Overlays().Add(tappableImg)
 
+	mainWindow.Canvas().SetOnTypedKey(func(keyEvent *fyne.KeyEvent) {
+		if keyEvent.Name == fyne.KeyEscape {
+			mainWindow.Canvas().Overlays().Remove(modal)
+			mainWindow.Canvas().Overlays().Remove(tappableImg)
+
+			mainWindow.Canvas().SetOnTypedKey(func(keyEvent *fyne.KeyEvent) {
+			})
+		}
+	})
 	tappableImg.OnTapped = func() {
 		mainWindow.Canvas().Overlays().Remove(modal)
 		mainWindow.Canvas().Overlays().Remove(tappableImg)
@@ -205,7 +263,23 @@ func processImage(img64 string) (*canvas.Image, error) {
 	return newImg, nil
 }
 
+func addOneIndexToCacheImages(add int) {
+	for _, img := range cacheImages {
+		img.index = img.index + add
+	}
+	log.Println("Indexes updated ", add)
+}
+
+func waitForAddingImages() {
+	for addingImages {
+		log.Println("Waiting for adding images to complete")
+		time.Sleep(500 * time.Millisecond)
+	}
+}
+
 func addCacheImages(imgBytes string, first bool) {
+	waitForAddingImages()
+	addingImages = true
 	lastIndex := 0
 	if len(cacheImages) > 0 {
 		lastIndex = cacheImages[len(cacheImages)-1].index
@@ -213,6 +287,11 @@ func addCacheImages(imgBytes string, first bool) {
 
 	log.Println("addCacheImages started")
 	imgArr := strings.Split(strings.TrimSuffix(imgBytes, "//DIVIDER//"), "//DIVIDER//")
+
+	if first {
+		addOneIndexToCacheImages(len(imgArr))
+	}
+
 	for i, img64 := range imgArr {
 		newImg, err := processImage(img64)
 		if err != nil {
@@ -220,7 +299,6 @@ func addCacheImages(imgBytes string, first bool) {
 		}
 
 		tappableImg := NewImageButtonFromFile(newImg, func() {}, IMAGES_WIDTH, IMAGES_WIDTH)
-		tappableImg.index = i + lastIndex + 1
 		tappableImg.OnTapped = func() {
 			log.Printf("Tapped image %d", tappableImg.index)
 			askForFullImageForModal(tappableImg.index)
@@ -228,13 +306,17 @@ func addCacheImages(imgBytes string, first bool) {
 
 		mutex.Lock()
 		if first {
+			tappableImg.index = i + 1
 			cacheImages = append([]*ImageButton{tappableImg}, cacheImages...)
 		} else {
+			tappableImg.index = i + lastIndex + 1
 			cacheImages = append(cacheImages, tappableImg)
 		}
 		mutex.Unlock()
 	}
+
 	log.Println("addCacheImages completed")
+	addingImages = false
 	updateUI()
 	// addNewImages()
 }
@@ -321,6 +403,7 @@ func addFIRSTImages() {
 func createUI() {
 	imgOffset = 0
 	loadingPhotos = false
+	addingImages = false
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)

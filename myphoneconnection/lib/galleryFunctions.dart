@@ -11,27 +11,35 @@ import 'package:myphoneconnection/server.dart';
 import 'package:photo_gallery/photo_gallery.dart';
 
 var publicGallery = PublicGallery();
+late List<Album> imageAlbums;
+bool sendingNewImages = false;
 
 class PublicGallery {
   int numberOfImagesOnGallery = -1;
 
+  void initGallery() async {
+    imageAlbums = await PhotoGallery.listAlbums();
+  }
+
   Future<int> getNumberOfImagesOnGallery() async {
-    final List<Album> imageAlbums = await PhotoGallery.listAlbums();
     final MediaPage imagePage = await imageAlbums[0].listMedia();
 
     return imagePage.items.length;
   }
 
   void checkNumberOfImagesOnGallery() {
-    getNumberOfImagesOnGallery().then((value) {
+    getNumberOfImagesOnGallery().then((value) async {
       if (numberOfImagesOnGallery == -1) {
         numberOfImagesOnGallery = value;
       } else if (numberOfImagesOnGallery != value) {
         var numberOfNewImages = value - numberOfImagesOnGallery;
         if (connectionPC.ws.checkWsConnection()) {
-          GalleryFunctions().sendNewImages(numberOfNewImages);
+          if (sendingNewImages) return;
+          if (await GalleryFunctions()
+              .sendNewImages(numberOfNewImages, value)) {
+            numberOfImagesOnGallery = value;
+          }
         }
-        numberOfImagesOnGallery = value;
       }
     });
   }
@@ -47,7 +55,6 @@ class GalleryFunctions {
 
   Future<void> sendFullImage(index) async {
     debugPrint("Waiting here 1");
-    final List<Album> imageAlbums = await PhotoGallery.listAlbums();
     debugPrint("Waiting here 2");
     final MediaPage imagePage = await imageAlbums[0].listMedia(
       skip: index,
@@ -55,14 +62,25 @@ class GalleryFunctions {
     );
     debugPrint("Waiting here 3");
     final image = await imagePage.items[0].getFile();
+    final mediaType = imagePage.items[0].mediumType;
 
     debugPrint("Waiting here 4");
+    final res = await FlutterImageCompress.compressWithList(
+      image.readAsBytesSync(),
+      quality: 95,
+      format: CompressFormat.jpeg,
+    );
 
-    final compressedImage = compressData(image.readAsBytesSync());
+    final compressedImage = compressData(res);
     debugPrint("Waiting here 5");
     final imagesb64Bytes = base64.encode(compressedImage);
     debugPrint("Waiting here 6");
-    connectionPC.ws.sendData("fullImage//$imagesb64Bytes");
+
+    if (mediaType == MediumType.video) {
+      connectionPC.ws.sendData("fullVIDEO//$imagesb64Bytes");
+    } else if (mediaType == MediumType.image) {
+      connectionPC.ws.sendData("fullImage//$imagesb64Bytes");
+    }
     debugPrint("SENDING FULL IMAGE $index with size ${imagesb64Bytes.length}");
   }
 
@@ -70,7 +88,6 @@ class GalleryFunctions {
       int numberOfImages, int index) async {
     debugPrint("GETTING IMAGES");
 
-    final List<Album> imageAlbums = await PhotoGallery.listAlbums();
     final MediaPage imagePage = await imageAlbums[0].listMedia(
       skip: index,
       take: numberOfImages,
@@ -83,8 +100,6 @@ class GalleryFunctions {
 
     return ret;
   }
-
-  //there is a bug if i call cache images async they get same index
 
   Future<String> imageTreatment(List<int> image) async {
     final res = await FlutterImageCompress.compressWithList(
@@ -104,25 +119,30 @@ class GalleryFunctions {
     gettingImages = true;
     List<Future<String>> futures = [];
 
+    debugPrint("Step 1");
     final imageTest = await getImageThumbnailFromGalleryWithIndex(
         numberOfImages, imagesIndex);
     var resBytes = "";
 
+    debugPrint("Step 2");
     if (imageTest.isNotEmpty) {
       for (var image in imageTest) {
         futures.add(imageTreatment(image));
       }
     }
 
+    debugPrint("Step 3");
     List<String> results = await Future.wait(futures);
     for (var result in results) {
       resBytes += result;
     }
 
+    debugPrint("Step 4");
     debugPrint("resBytes length: ${resBytes.length}");
     connectionPC.ws.sendData("imagetest//$resBytes");
     imagesIndex += numberOfImages;
     gettingImages = false;
+    debugPrint("Step 5");
   }
 
   Future<void> sendFirstImages() async {
@@ -153,7 +173,12 @@ class GalleryFunctions {
     imagesIndex += numberOfImagesFIRST;
   }
 
-  Future<void> sendNewImages(int numberOfNewImages) async {
+//entao... o que eu acho q estava a conetcer era no momento em q pedia novas images o numero era x, e durante o tempo de ir buscar essas x images
+//o nummero de images na galeria mudava, e entao quando ia buscar as x images,
+//o numero de images na galeria ja nao era o mesmo, entao é preciso o numberOfNeededImages
+  Future<bool> sendNewImages(
+      int numberOfNewImages, numberOfNeededImages) async {
+    sendingNewImages = true;
     List<Future<String>> futures = [];
 
     final imageTest =
@@ -170,9 +195,22 @@ class GalleryFunctions {
     for (var result in results) {
       resBytes += result;
     }
+
+    int numberOfCurrentImages =
+        await publicGallery.getNumberOfImagesOnGallery();
+
+    if (numberOfCurrentImages != numberOfNeededImages) {
+      debugPrint(
+          "We are not sending the images because the number of images on the gallery is different from the number of images we have");
+      sendingNewImages = false;
+      return false;
+    }
+
     debugPrint("Sending NEW images  $numberOfNewImages");
     debugPrint("resBytes length: ${resBytes.length}");
     connectionPC.ws.sendData("updateGallery//$resBytes");
     imagesIndex += numberOfNewImages;
+    sendingNewImages = false;
+    return true;
   }
 }
