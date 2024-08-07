@@ -18,10 +18,8 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
-	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
 	"github.com/getlantern/systray"
-	"github.com/metal3d/fyne-streamer/video"
 )
 
 var (
@@ -31,7 +29,6 @@ var (
 	cacheImages    []*ImageButton
 	imgOffset      int
 	numberOfImages int
-	allImagesLen   int
 	loadingPhotos  bool
 	mutex          sync.Mutex
 	addingImages   bool
@@ -42,7 +39,11 @@ var (
 	maxImgNumberFooter *widget.Label
 )
 
-const IMAGES_WIDTH = 150
+const IMAGES_WIDTH = 350
+const IMAGES_HEIGHT = 150
+const IMAGES_BATCH = 12
+
+var placeholderImage = canvas.NewRectangle(color.Transparent)
 
 // func resizeImage(img []byte, width uint) ([]byte, error) {
 // 	imgDecoded, _, err := image.Decode(bytes.NewReader(img))
@@ -92,136 +93,6 @@ func (b *ImageButton) Tapped(ev *fyne.PointEvent) {
 	}
 }
 
-func showVideoInModal2(file string) {
-	u := storage.NewFileURI(file)
-	viewer := video.NewPlayer()
-	viewer.Open(u)
-
-	viewer.SetMinSize(fyne.NewSize(800, 600))
-
-	var modal *widget.PopUp
-
-	quitButton := widget.NewButton("Quit", func() {
-		modal.Hide()
-		mainWindow.Canvas().Overlays().Remove(modal)
-		viewer.Stop()
-	})
-	content := container.NewVBox(viewer, quitButton)
-
-	modal = widget.NewModalPopUp(content, mainWindow.Canvas())
-
-	modal.Show()
-
-	viewer.Play()
-
-	// Detect ESC key press
-	mainWindow.Canvas().SetOnTypedKey(func(keyEvent *fyne.KeyEvent) {
-		if keyEvent.Name == fyne.KeyEscape {
-			modal.Hide()
-			mainWindow.Canvas().Overlays().Remove(modal)
-			viewer.Stop()
-
-			mainWindow.Canvas().SetOnTypedKey(func(keyEvent *fyne.KeyEvent) {
-			})
-		}
-	})
-
-}
-
-func showVideoInModal(vid64 string) {
-	vid, err := base64.StdEncoding.DecodeString(vid64)
-	if err != nil {
-		log.Printf("Error decoding base64 image: %v", err)
-		return
-	}
-
-	vidDecompressed, err := decompressData(vid)
-	if err != nil {
-		log.Printf("Error decompressing image data: %v", err)
-		return
-	}
-
-	//save video .mp4
-	file, err := os.CreateTemp("", "video*.mp4")
-	if err != nil {
-		log.Printf("Error creating video file: %v", err)
-		return
-	}
-	defer file.Close()
-
-	_, err = file.Write(vidDecompressed)
-	if err != nil {
-		log.Printf("Error writing video data to file: %v", err)
-		return
-	}
-
-	log.Println("Video saved successfully")
-	showVideoInModal2(file.Name())
-}
-
-func showImageInModal(img64 string) {
-	img, err := base64.StdEncoding.DecodeString(img64)
-	if err != nil {
-		log.Printf("Error decoding base64 image: %v", err)
-		return
-	}
-
-	imgDecompressed, err := decompressData(img)
-	if err != nil {
-		log.Printf("Error decompressing image data: %v", err)
-		return
-	}
-
-	newImg := canvas.NewImageFromResource(fyne.NewStaticResource("image", imgDecompressed))
-	if newImg == nil {
-		log.Println("newImg is nil")
-		return
-	}
-	newImg.FillMode = canvas.ImageFillContain
-
-	imgWidth := 500
-	imgHeight := (newImg.MinSize().Height * float32(imgWidth)) / newImg.MinSize().Width
-
-	tappableImg := NewImageButtonFromFile(newImg, func() {}, float32(imgWidth), imgHeight)
-	tappableImg.Move(fyne.NewPos(mainWindow.Canvas().Size().Width/2-newImg.MinSize().Width/2, mainWindow.Canvas().Size().Height/2-newImg.MinSize().Height/2))
-
-	mainWindow.Canvas().Overlays().Add(tappableImg)
-
-	overlay := canvas.NewRectangle(&color.RGBA{0, 0, 0, 128})
-	windowSize := mainWindow.Canvas().Size()
-	overlay.Resize(fyne.NewSize(windowSize.Width, windowSize.Height))
-
-	modal := container.NewWithoutLayout(overlay)
-
-	mainWindow.Canvas().Overlays().Add(modal)
-	mainWindow.Canvas().Overlays().Add(tappableImg)
-
-	mainWindow.Canvas().SetOnTypedKey(func(keyEvent *fyne.KeyEvent) {
-		if keyEvent.Name == fyne.KeyEscape {
-			mainWindow.Canvas().Overlays().Remove(modal)
-			mainWindow.Canvas().Overlays().Remove(tappableImg)
-
-			mainWindow.Canvas().SetOnTypedKey(func(keyEvent *fyne.KeyEvent) {
-			})
-		}
-	})
-	tappableImg.OnTapped = func() {
-		mainWindow.Canvas().Overlays().Remove(modal)
-		mainWindow.Canvas().Overlays().Remove(tappableImg)
-	}
-	log.Println("showImageInModal completed")
-}
-
-func askForFullImageForModal(index int) {
-	if !ws.isConnectionAlive() {
-		log.Println("WebSocket connection is not alive")
-		return
-	}
-
-	log.Println("Requesting full image")
-	ws.sendData(fmt.Sprintf("askFullImage//%d", index-1))
-}
-
 func updateUI() {
 	imgNumberFooter.SetText(strconv.Itoa(imgOffset))
 	maxImgNumberFooter.SetText(strconv.Itoa(numberOfImages))
@@ -249,7 +120,6 @@ func processImage(img64 string) (*canvas.Image, error) {
 
 	mutex.Lock()
 	numberOfImages++
-	allImagesLen += len(imgDecompressed)
 	mutex.Unlock()
 
 	newImg := canvas.NewImageFromResource(fyne.NewStaticResource("image", imgDecompressed))
@@ -258,7 +128,7 @@ func processImage(img64 string) (*canvas.Image, error) {
 		return nil, fmt.Errorf("newImg is nil")
 	}
 	newImg.FillMode = canvas.ImageFillContain
-	newImg.SetMinSize(fyne.NewSize(IMAGES_WIDTH, IMAGES_WIDTH)) //used IMAGES_WIDTH on both width and height to make it square
+	newImg.SetMinSize(fyne.NewSize(IMAGES_WIDTH, IMAGES_HEIGHT)) //used IMAGES_WIDTH on both width and height to make it square
 
 	return newImg, nil
 }
@@ -298,7 +168,7 @@ func addCacheImages(imgBytes string, first bool) {
 			continue
 		}
 
-		tappableImg := NewImageButtonFromFile(newImg, func() {}, IMAGES_WIDTH, IMAGES_WIDTH)
+		tappableImg := NewImageButtonFromFile(newImg, func() {}, IMAGES_WIDTH, IMAGES_HEIGHT)
 		tappableImg.OnTapped = func() {
 			log.Printf("Tapped image %d", tappableImg.index)
 			askForFullImageForModal(tappableImg.index)
@@ -363,21 +233,32 @@ func showNewImagesArray(batch int, length int) {
 
 	imagesToAdd := calculateImagesToAdd(batch, length)
 
+	if len(imagesToAdd) == 0 {
+		return
+	}
+
+	if len(imagesToAdd) < IMAGES_BATCH {
+		var number_of_placeholders = IMAGES_BATCH - len(imagesToAdd)
+		for i := 0; i < number_of_placeholders; i++ {
+			imagesToAdd = append(imagesToAdd, placeholderImage)
+		}
+	}
+
 	imageGallery.Objects = append(imageGallery.Objects, imagesToAdd...)
 
 	updateUI()
 	log.Println("showNewImagesArray completed")
 }
 func loadCurrentImages() {
-	showNewImagesArray(0, 12)
+	showNewImagesArray(0, IMAGES_BATCH)
 }
 
 func loadRightImages() {
-	showNewImagesArray(12, 12)
+	showNewImagesArray(IMAGES_BATCH, IMAGES_BATCH)
 }
 
 func loadLeftImages() {
-	showNewImagesArray(-12, 12)
+	showNewImagesArray(-IMAGES_BATCH, IMAGES_BATCH)
 }
 
 func addNewImages() {
@@ -400,37 +281,36 @@ func addFIRSTImages() {
 	ws.sendData("firstImages")
 }
 
-func createUI() {
+func initApp() {
 	imgOffset = 0
 	loadingPhotos = false
 	addingImages = false
+	placeholderImage.SetMinSize(fyne.NewSize(IMAGES_WIDTH, IMAGES_HEIGHT))
+
+	for i := 0; i < IMAGES_BATCH; i++ {
+		imageGallery.Objects = append(imageGallery.Objects, placeholderImage)
+	}
+}
+
+func createUI() {
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	mainApp = app.New()
-	mainWindow = mainApp.NewWindow("Fyne App with Systray")
+	mainWindow = mainApp.NewWindow("myPhoneConnection")
 	imageGallery = container.NewAdaptiveGrid(3)
 
-	button := widget.NewButton("Get Image Info", func() {
-		mutex.Lock()
-		defer mutex.Unlock()
-		log.Printf("number_of_images: %d", numberOfImages)
-		log.Printf("all_images_len: %d", allImagesLen)
-		log.Printf("cacheImages: %d", len(cacheImages))
-	})
-
-	buttonLeft := widget.NewButton("Load Left Images", func() {
+	buttonLeft := widget.NewButton("<", func() {
 		loadLeftImages()
 	})
+	blContainer := container.NewVBox(layout.NewSpacer(), buttonLeft, layout.NewSpacer())
 
-	buttonRight := widget.NewButton("Load Right Images", func() {
+	buttonRight := widget.NewButton(">", func() {
 		loadRightImages()
 	})
 
-	buttonCache := widget.NewButton("Cache Images", func() {
-		go addNewImages()
-	})
+	brContainer := container.NewVBox(layout.NewSpacer(), buttonRight, layout.NewSpacer())
 
 	imgNumberFooter = widget.NewLabel(strconv.Itoa(imgOffset))
 	maxImgNumberFooter = widget.NewLabel(strconv.Itoa(numberOfImages))
@@ -438,11 +318,11 @@ func createUI() {
 	footer := container.New(layout.NewHBoxLayout(), layout.NewSpacer(), imgNumberFooter, layout.NewSpacer(), maxImgNumberFooter, layout.NewSpacer())
 
 	content := container.NewVBox(
-		button,
-		buttonLeft,
-		buttonRight,
-		buttonCache,
-		imageGallery,
+		container.NewHBox(
+			blContainer,
+			imageGallery,
+			brContainer,
+		),
 		layout.NewSpacer(), // Adds space between the main content and footer
 		footer,
 	)
@@ -456,14 +336,15 @@ func createUI() {
 		systray.Run(onReady, onExit)
 	}()
 
-	mainWindow.Resize(fyne.NewSize(1000, 800))
+	initApp()
+	mainWindow.Resize(fyne.NewSize(1000, 600))
 	mainWindow.ShowAndRun()
 }
 
 func onReady() {
 	systray.SetIcon(iconData)
-	systray.SetTitle("Fyne App")
-	systray.SetTooltip("Fyne App Running in Background")
+	systray.SetTitle("myPhoneConnection")
+	systray.SetTooltip("myPhoneConnection Running in Background")
 
 	mShow := systray.AddMenuItem("Show", "Show the application window")
 	mQuit := systray.AddMenuItem("Quit", "Quit the application")

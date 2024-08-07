@@ -17,6 +17,16 @@ import (
 	"github.com/shirou/gopsutil/mem"
 )
 
+/*
+ideias: 1. nos modal popups, adicionar um botão para fazer download do ficheiro etc etc
+		1.2. nos modal popups, enquanto nao recebemos a images full, mostrar a de baixa resolução
+		1.3. manter em algum lado uma cache com a esuqerda e direita da imagem atual
+
+		2. manter uma cache baixada de todas as imagens e dar load, assumir q tudo esta certo e confirmar com o server
+
+		IMPORTANTE: DELETION OF IMAGES ON PHONE
+*/
+
 var ws Ws
 
 type SysInfo struct {
