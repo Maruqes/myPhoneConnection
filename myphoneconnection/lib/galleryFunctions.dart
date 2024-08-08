@@ -51,30 +51,29 @@ class GalleryFunctions {
   int imagesIndex = 0;
   int numberOfImages = 750;
   int imageWidth = 150;
-  int imageQuality = 15;
+  int imageQuality = 30;
 
   Future<void> sendFullImage(index) async {
-    debugPrint("Waiting here 1");
-    debugPrint("Waiting here 2");
     final MediaPage imagePage = await imageAlbums[0].listMedia(
       skip: index,
       take: 1,
     );
-    debugPrint("Waiting here 3");
     final image = await imagePage.items[0].getFile();
     final mediaType = imagePage.items[0].mediumType;
 
-    debugPrint("Waiting here 4");
-    final res = await FlutterImageCompress.compressWithList(
-      image.readAsBytesSync(),
-      quality: 95,
-      format: CompressFormat.jpeg,
-    );
+    Uint8List res = Uint8List(0);
+    if (mediaType == MediumType.image) {
+      res = await FlutterImageCompress.compressWithList(
+        image.readAsBytesSync(),
+        quality: 85,
+        format: CompressFormat.jpeg,
+      );
+    } else {
+      res = image.readAsBytesSync();
+    }
 
     final compressedImage = compressData(res);
-    debugPrint("Waiting here 5");
     final imagesb64Bytes = base64.encode(compressedImage);
-    debugPrint("Waiting here 6");
 
     if (mediaType == MediumType.video) {
       connectionPC.ws.sendData("fullVIDEO//$imagesb64Bytes");

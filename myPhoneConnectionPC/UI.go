@@ -290,6 +290,7 @@ func initApp() {
 	for i := 0; i < IMAGES_BATCH; i++ {
 		imageGallery.Objects = append(imageGallery.Objects, placeholderImage)
 	}
+
 }
 
 func createUI() {

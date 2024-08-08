@@ -9,7 +9,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"log"
+	"math/big"
 	"os"
+	"path/filepath"
 )
 
 func generateRandomKey(length int) ([]byte, error) {
@@ -143,4 +146,60 @@ func compressData(data []byte) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+func createRandomString(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, length)
+	for i := range b {
+		randIndex, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			log.Printf("Error generating random index: %v", err)
+			return ""
+		}
+		b[i] = charset[randIndex.Int64()]
+	}
+	return string(b)
+}
+
+func saveImage(imgDecompressed []byte) {
+	// Save image to the downloads folder
+	downloadsDir, err := os.UserHomeDir()
+	if err != nil {
+		log.Printf("Error getting user's home directory: %v", err)
+		return
+	}
+	downloadsPath := filepath.Join(downloadsDir, "Downloads")
+
+	fileName := "image" + createRandomString(8) + ".jpeg"
+	filePath := filepath.Join(downloadsPath, fileName)
+
+	err = ioutil.WriteFile(filePath, imgDecompressed, 0644)
+	if err != nil {
+		log.Printf("Error saving image file: %v", err)
+		return
+	}
+
+	log.Println("Image saved successfully with path:", filePath)
+}
+
+func saveVideo(video []byte) {
+	// Save image to the downloads folder
+	downloadsDir, err := os.UserHomeDir()
+	if err != nil {
+		log.Printf("Error getting user's home directory: %v", err)
+		return
+	}
+	downloadsPath := filepath.Join(downloadsDir, "Downloads")
+
+	fileName := "image" + createRandomString(8) + ".mp4"
+	filePath := filepath.Join(downloadsPath, fileName)
+
+	err = ioutil.WriteFile(filePath, video, 0644)
+	if err != nil {
+		log.Printf("Error saving image file: %v", err)
+		return
+	}
+
+	log.Println("Image saved successfully with path:", filePath)
 }
