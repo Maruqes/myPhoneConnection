@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:myphoneconnection/config.dart';
 import 'package:flutter/material.dart';
 import 'package:myphoneconnection/main.dart';
+import 'package:myphoneconnection/mediaPlayer.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import "package:pointycastle/export.dart";
@@ -337,6 +338,7 @@ class WebSocketConnection {
   late Uint8List key;
   bool isConnected = false;
   GalleryFunctions galleryFunctions = GalleryFunctions();
+  MediaPlayer mediaPlayer = MediaPlayer();
 
   void sendData(String data) {
     final encData = encryptAES(key, data);
@@ -346,7 +348,7 @@ class WebSocketConnection {
   Future<void> recieveData(String data) async {
     final dec = decryptAES(key, data);
 
-    debugPrint('Recieved dec: $dec');
+    // debugPrint('Recieved dec: $dec');
     if (dec == "askImages") {
       galleryFunctions.sendImages();
     } else if (dec == "firstImages") {
@@ -354,6 +356,11 @@ class WebSocketConnection {
     } else if (dec.contains("askFullImage//")) {
       final index = int.parse(dec.split("//")[1]);
       galleryFunctions.sendFullImage(index);
+    } else if (dec.contains("dataMediaPlayer//||//")) {
+      final data = dec.split("dataMediaPlayer//||//")[1];
+      mediaPlayer.updateData(data);
+    } else if (dec.contains("clearMediaPlayer")) {
+      mediaPlayer.mediaPlayers.clear();
     }
   }
 

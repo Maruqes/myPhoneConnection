@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
+import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:myphoneconnection/config.dart';
 import 'package:myphoneconnection/server.dart';
 import 'package:myphoneconnection/services.dart';
@@ -18,7 +20,25 @@ ValueNotifier<List<Device>> globalDeviceListNotifier =
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await LocalNotificationService().init();
+
+  await AwesomeNotifications().initialize(
+    null, //'resource://drawable/res_app_icon',//
+    [
+      NotificationChannel(
+        channelKey: 'alerts',
+        channelName: 'Alerts',
+        channelDescription: 'Notification tests as alerts',
+        playSound: false,
+        soundSource: "",
+        onlyAlertOnce: true,
+        groupAlertBehavior: GroupAlertBehavior.Children,
+        importance: NotificationImportance.Min,
+        defaultPrivacy: NotificationPrivacy.Private,
+        defaultColor: Colors.deepPurple,
+        ledColor: Colors.deepPurple,
+      )
+    ],
+  );
 
   ListenToPort().initListenPort();
 
@@ -89,7 +109,8 @@ class _MyHomePageState extends State<MyHomePage> {
                     child: const Text("Update Device List")),
                 ElevatedButton(
                     onPressed: () {
-                      PairedDevices().clearAllConnectionSaves();
+                      // PairedDevices().clearAllConnectionSaves();
+                      Notify.notifyMediaPlayer("title", "body");
                     },
                     child: const Text("Clear All Connection Saves")),
                 ValueListenableBuilder<List<Device>>(

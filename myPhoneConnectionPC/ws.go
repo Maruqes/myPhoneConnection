@@ -43,11 +43,14 @@ func (ws *Ws) httpWS(recMsg func(s string), key *[]byte) {
 	})
 }
 
-func (ws *Ws) sendData(s string) {
-	encrypted, _ := encryptAES(*ws.ws_key, s)
-	ws.socket.WriteMessage(websocket.TextMessage, []byte(encrypted))
-}
-
 func (ws *Ws) isConnectionAlive() bool {
 	return ws.socket != nil
+}
+
+func (ws *Ws) sendData(s string) {
+	if !ws.isConnectionAlive() {
+		return
+	}
+	encrypted, _ := encryptAES(*ws.ws_key, s)
+	ws.socket.WriteMessage(websocket.TextMessage, []byte(encrypted))
 }

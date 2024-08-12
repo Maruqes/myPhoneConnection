@@ -1,13 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
+import 'dart:math';
 import 'dart:ui';
+
+import 'package:awesome_notifications/awesome_notifications.dart';
 
 import 'package:myphoneconnection/main.dart';
 import 'package:myphoneconnection/server.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:myphoneconnection/galleryFunctions.dart';
 
 class ListenToPort {
@@ -42,48 +44,6 @@ class ListenToPort {
     port3.listen((_) {
       globalDeviceListNotifier.value = List.from(devicesTempToAdd);
     });
-  }
-}
-
-class LocalNotificationService {
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
-
-  Future<void> init() async {
-    // Initialize native android notification
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-
-    // Initialize native Ios Notifications
-    const DarwinInitializationSettings initializationSettingsIOS =
-        DarwinInitializationSettings();
-
-    const InitializationSettings initializationSettings =
-        InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsIOS,
-    );
-
-    await flutterLocalNotificationsPlugin.initialize(
-      initializationSettings,
-    );
-  }
-
-  void showNotificationAndroid(String title, String value) async {
-    const AndroidNotificationDetails androidNotificationDetails =
-        AndroidNotificationDetails('channel_id', 'Channel Name',
-            channelDescription: 'Channel Description',
-            importance: Importance.max,
-            priority: Priority.high,
-            ticker: 'ticker');
-
-    int notificationId = 1;
-    const NotificationDetails notificationDetails =
-        NotificationDetails(android: androidNotificationDetails);
-
-    await flutterLocalNotificationsPlugin.show(
-        notificationId, title, value, notificationDetails,
-        payload: 'Not present');
   }
 }
 
@@ -136,6 +96,59 @@ class PcService {
         initialNotificationTitle: "Background Service",
         autoStartOnBoot: true,
       ),
+    );
+  }
+}
+
+class Notify {
+  static Future<void> notify(String title, String body) async {
+    await AwesomeNotifications().createNotification(
+      content: NotificationContent(
+        id: Random().nextInt(100),
+        channelKey: 'basic_channel',
+        title: title,
+        body: body,
+      ),
+    );
+  }
+
+  //set a new media player notification with buttons
+  static Future<void> notifyMediaPlayer(String title, String body) async {
+    await AwesomeNotifications().createNotification(
+      content: NotificationContent(
+        id: Random().nextInt(100),
+        channelKey: 'basic_channel',
+        title: title,
+        body: body,
+        category: NotificationCategory.Transport,
+        notificationLayout: NotificationLayout.MediaPlayer,
+        color: Colors.purple.shade700,
+        autoDismissible: false,
+        showWhen: false,
+      ),
+      actionButtons: [
+        NotificationActionButton(
+          key: 'pause',
+          label: 'Pause',
+          icon: 'resource://drawable/res_pause',
+          autoDismissible: false,
+          showInCompactView: true,
+        ),
+        NotificationActionButton(
+          key: 'next',
+          label: 'Next',
+          icon: 'resource://drawable/res_next',
+          autoDismissible: false,
+          showInCompactView: true,
+        ),
+        NotificationActionButton(
+          key: 'previous',
+          label: 'Previous',
+          icon: 'resource://drawable/res_previous',
+          autoDismissible: false,
+          showInCompactView: true,
+        ),
+      ],
     );
   }
 }
