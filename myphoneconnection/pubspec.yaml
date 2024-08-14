@@ -9,7 +9,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  image_gallery_saver: '^2.0.3'
   photo_gallery: '^2.2.1'
   flutter_background_service: ^4.0.0
   flutter_secure_storage: ^9.2.2
@@ -19,8 +18,10 @@ dependencies:
   web_socket_channel: ^3.0.0
   flutter_image_compress: ^2.3.0
   archive: ^3.6.1
-  awesome_notifications: ^0.9.3+1
-
+  http: ^1.2.2
+  awesome_notifications_core: ^0.9.3
+  awesome_notifications: any
+  path_provider: ^2.1.4
 
 dev_dependencies:
   flutter_test:

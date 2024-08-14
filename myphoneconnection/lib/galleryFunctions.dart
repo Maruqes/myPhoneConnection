@@ -6,9 +6,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:myphoneconnection/config.dart';
-import 'package:myphoneconnection/main.dart';
 import 'package:myphoneconnection/server.dart';
 import 'package:photo_gallery/photo_gallery.dart';
+import 'package:path_provider/path_provider.dart';
 
 var publicGallery = PublicGallery();
 late List<Album> imageAlbums;
@@ -52,6 +52,13 @@ class GalleryFunctions {
   int numberOfImages = 750;
   int imageWidth = 150;
   int imageQuality = 30;
+
+  Future<String> saveImageInDisk(Uint8List bytes, String path) async {
+    final Directory tempDir = await getTemporaryDirectory();
+    final File image = File('${tempDir.path}/$path.jpg');
+    await image.writeAsBytes(bytes);
+    return image.path;
+  }
 
   Future<void> sendFullImage(index) async {
     final MediaPage imagePage = await imageAlbums[0].listMedia(

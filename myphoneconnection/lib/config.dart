@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -10,7 +9,7 @@ import 'package:flutter/material.dart';
 import "package:pointycastle/export.dart";
 import 'package:archive/archive.dart';
 
-final storage = new FlutterSecureStorage();
+const storage = FlutterSecureStorage();
 
 Future<void> writeData(String key, String value) async {
   await storage.write(key: key, value: value);

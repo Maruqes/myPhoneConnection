@@ -111,6 +111,7 @@ func wsMessages(s string) {
 		loadCurrentImages()
 	} else if s == "createdSocket" {
 		addFIRSTImages()
+		syncDataWithWS()
 	} else if strings.Contains(s, "updateGallery//") {
 		image_file := strings.Replace(s, "updateGallery//", "", 1)
 
@@ -126,7 +127,10 @@ func wsMessages(s string) {
 		image_file := strings.Replace(s, "fullVIDEO//", "", 1)
 
 		showVideoInModal(image_file)
+	} else if strings.Contains(s, "media//") {
+		image_file := strings.Replace(s, "media//", "", 1)
 
+		mediaAction(image_file)
 	} else {
 		log.Println("WS:", s)
 	}

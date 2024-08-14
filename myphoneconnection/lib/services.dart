@@ -5,6 +5,7 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:awesome_notifications/awesome_notifications.dart';
+import 'package:http/http.dart' as http;
 
 import 'package:myphoneconnection/main.dart';
 import 'package:myphoneconnection/server.dart';
@@ -100,54 +101,153 @@ class PcService {
   }
 }
 
+class NotificationController {
+  /// Use this method to detect when a new notification or a schedule is created
+  @pragma("vm:entry-point")
+  static Future<void> onNotificationCreatedMethod(
+      ReceivedNotification receivedNotification) async {}
+
+  /// Use this method to detect every time that a new notification is displayed
+  @pragma("vm:entry-point")
+  static Future<void> onNotificationDisplayedMethod(
+      ReceivedNotification receivedNotification) async {}
+
+  /// Use this method to detect if the user dismissed a notification
+  @pragma("vm:entry-point")
+  static Future<void> onDismissActionReceivedMethod(
+      ReceivedAction receivedAction) async {
+    debugPrint("Notification dismissed");
+  }
+
+  /// Use this method to detect when the user taps on a notification or action button
+  @pragma("vm:entry-point")
+  static Future<void> onActionReceivedMethod(
+      ReceivedAction receivedAction) async {
+    debugPrint("Action received");
+    if (receivedAction.buttonKeyPressed == "pause") {
+      connectionPC.ws.sendData("media//pause");
+    } else if (receivedAction.buttonKeyPressed == "next") {
+      connectionPC.ws.sendData("media//next");
+    } else if (receivedAction.buttonKeyPressed == "previous") {
+      connectionPC.ws.sendData("media//previous");
+    }
+  }
+}
+
 class Notify {
-  static Future<void> notify(String title, String body) async {
-    await AwesomeNotifications().createNotification(
-      content: NotificationContent(
-        id: Random().nextInt(100),
-        channelKey: 'basic_channel',
-        title: title,
-        body: body,
-      ),
+  AwesomeNotifications myAwesomeNots = AwesomeNotifications();
+  int mediaPlayerID = -1;
+
+  Future<void> init() async {
+    await myAwesomeNots.initialize(
+      null, //'resource://drawable/res_app_icon',//
+      [
+        NotificationChannel(
+          channelKey: 'media_player',
+          channelGroupKey: "media_player",
+          channelName: 'No Sound Channel',
+          channelDescription: 'Notification tests as alerts',
+          playSound: false,
+          enableVibration: false,
+          vibrationPattern: null,
+          importance: NotificationImportance.Low,
+          defaultPrivacy: NotificationPrivacy.Public,
+        )
+      ],
     );
+
+    myAwesomeNots.isNotificationAllowed().then((isAllowed) {
+      if (!isAllowed) {
+        myAwesomeNots.requestPermissionToSendNotifications();
+      }
+    });
+    debugPrint("Notifications initialized");
+  }
+
+  void setListeners() {
+    myAwesomeNots.setListeners(
+        onActionReceivedMethod: NotificationController.onActionReceivedMethod,
+        onNotificationCreatedMethod:
+            NotificationController.onNotificationCreatedMethod,
+        onNotificationDisplayedMethod:
+            NotificationController.onNotificationDisplayedMethod,
+        onDismissActionReceivedMethod:
+            NotificationController.onDismissActionReceivedMethod);
+  }
+
+  Future<String> saveLinkPngInDisk(String link) async {
+    try {
+      var response = await http.get(Uri.parse(link));
+      var bytes = response.bodyBytes;
+      String path = await GalleryFunctions().saveImageInDisk(bytes, "tempIMG");
+      return path;
+    } catch (e) {
+      return "";
+    }
   }
 
   //set a new media player notification with buttons
-  static Future<void> notifyMediaPlayer(String title, String body) async {
-    await AwesomeNotifications().createNotification(
+  Future<void> notifyMediaPlayer(
+      String title, String body, String link, int length, int position) async {
+    double positionInt = 0;
+    if (length <= 0 || position < 0) {
+    } else {
+      positionInt = (position / length) * 100;
+    }
+
+    if (position > length) {
+      position = length;
+    }
+
+    String path = await saveLinkPngInDisk(link);
+
+    if (path != "") {
+      path = "file://$path";
+    }
+
+    if (mediaPlayerID == -1) {
+      mediaPlayerID = Random().nextInt(100);
+    }
+
+    await myAwesomeNots.createNotification(
       content: NotificationContent(
-        id: Random().nextInt(100),
-        channelKey: 'basic_channel',
+        id: mediaPlayerID,
+        channelKey: 'media_player',
+        category: NotificationCategory.Transport,
         title: title,
         body: body,
-        category: NotificationCategory.Transport,
+        duration: Duration(microseconds: length),
+        progress: positionInt,
+        playbackSpeed: 1.0,
+        playState: NotificationPlayState.playing,
+        summary: "Now Playing",
         notificationLayout: NotificationLayout.MediaPlayer,
-        color: Colors.purple.shade700,
+        largeIcon: path,
         autoDismissible: false,
         showWhen: false,
       ),
       actionButtons: [
         NotificationActionButton(
-          key: 'pause',
-          label: 'Pause',
-          icon: 'resource://drawable/res_pause',
-          autoDismissible: false,
-          showInCompactView: true,
-        ),
+            key: 'pause',
+            label: 'Pause',
+            icon: 'resource://drawable/res_pause',
+            autoDismissible: false,
+            showInCompactView: true,
+            actionType: ActionType.KeepOnTop),
         NotificationActionButton(
-          key: 'next',
-          label: 'Next',
-          icon: 'resource://drawable/res_next',
-          autoDismissible: false,
-          showInCompactView: true,
-        ),
+            key: 'next',
+            label: 'Next',
+            icon: 'resource://drawable/res_next',
+            autoDismissible: false,
+            showInCompactView: true,
+            actionType: ActionType.KeepOnTop),
         NotificationActionButton(
-          key: 'previous',
-          label: 'Previous',
-          icon: 'resource://drawable/res_previous',
-          autoDismissible: false,
-          showInCompactView: true,
-        ),
+            key: 'previous',
+            label: 'Previous',
+            icon: 'resource://drawable/res_previous',
+            autoDismissible: false,
+            showInCompactView: true,
+            actionType: ActionType.KeepOnTop),
       ],
     );
   }

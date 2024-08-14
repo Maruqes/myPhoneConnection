@@ -1,13 +1,7 @@
 import 'dart:async';
-import 'dart:io';
-import 'dart:math';
-
-import 'package:awesome_notifications/awesome_notifications.dart';
-import 'package:myphoneconnection/config.dart';
 import 'package:myphoneconnection/server.dart';
 import 'package:myphoneconnection/services.dart';
 import 'package:flutter/material.dart';
-import 'package:photo_gallery/photo_gallery.dart';
 
 /*
 todolistdavida
@@ -18,27 +12,11 @@ testar o caralho do protocolo duma maneira incrivel de forma a ters a puta da ce
 ValueNotifier<List<Device>> globalDeviceListNotifier =
     ValueNotifier<List<Device>>([]);
 
+Notify nots = Notify();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  await AwesomeNotifications().initialize(
-    null, //'resource://drawable/res_app_icon',//
-    [
-      NotificationChannel(
-        channelKey: 'alerts',
-        channelName: 'Alerts',
-        channelDescription: 'Notification tests as alerts',
-        playSound: false,
-        soundSource: "",
-        onlyAlertOnce: true,
-        groupAlertBehavior: GroupAlertBehavior.Children,
-        importance: NotificationImportance.Min,
-        defaultPrivacy: NotificationPrivacy.Private,
-        defaultColor: Colors.deepPurple,
-        ledColor: Colors.deepPurple,
-      )
-    ],
-  );
+  nots.init();
 
   ListenToPort().initListenPort();
 
@@ -74,6 +52,8 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   void initState() {
+    nots.setListeners();
+
     super.initState();
     globalDeviceListNotifier.addListener(_updateDeviceList);
   }
@@ -109,8 +89,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     child: const Text("Update Device List")),
                 ElevatedButton(
                     onPressed: () {
-                      // PairedDevices().clearAllConnectionSaves();
-                      Notify.notifyMediaPlayer("title", "body");
+                      PairedDevices().clearAllConnectionSaves();
                     },
                     child: const Text("Clear All Connection Saves")),
                 ValueListenableBuilder<List<Device>>(

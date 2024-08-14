@@ -1,21 +1,15 @@
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
-import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui';
 
-import 'dart:io';
 import 'package:myphoneconnection/config.dart';
 import 'package:flutter/material.dart';
-import 'package:myphoneconnection/main.dart';
 import 'package:myphoneconnection/mediaPlayer.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import "package:pointycastle/export.dart";
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:archive/archive.dart';
 import 'package:myphoneconnection/galleryFunctions.dart';
 
 ConnectionPC connectionPC = ConnectionPC();
@@ -341,6 +335,10 @@ class WebSocketConnection {
   MediaPlayer mediaPlayer = MediaPlayer();
 
   void sendData(String data) {
+    if (isConnected == false) {
+      debugPrint('Not connected');
+      return;
+    }
     final encData = encryptAES(key, data);
     channel.sink.add(encData);
   }
@@ -360,7 +358,11 @@ class WebSocketConnection {
       final data = dec.split("dataMediaPlayer//||//")[1];
       mediaPlayer.updateData(data);
     } else if (dec.contains("clearMediaPlayer")) {
-      mediaPlayer.mediaPlayers.clear();
+      mediaPlayer.mediaPlayer.properties = [];
+      mediaPlayer.mediaPlayer.currentPlayer = "";
+    } else if (dec.contains("setMediaPosition//")) {
+      final data = dec.split("setMediaPosition//")[1];
+      mediaPlayer.setPosition(data);
     }
   }
 
@@ -380,9 +382,8 @@ class WebSocketConnection {
       debugPrint('WebSocket error: $error');
     }, cancelOnError: true);
 
-    sendData("createdSocket");
-
     isConnected = true;
+    sendData("createdSocket");
     debugPrint("WebSocket created");
   }
 
