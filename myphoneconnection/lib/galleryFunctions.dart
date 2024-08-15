@@ -160,8 +160,14 @@ class GalleryFunctions {
 
     List<Future<String>> futures = [];
 
-    final imageTest = await getImageThumbnailFromGalleryWithIndex(
-        numberOfImagesFIRST, imagesIndex);
+    List<List<int>> imageTest = [];
+    try {
+      imageTest = await getImageThumbnailFromGalleryWithIndex(
+          numberOfImagesFIRST, imagesIndex);
+    } catch (e) {
+      debugPrint("Error: $e");
+      return;
+    }
     var resBytes = "";
 
     if (imageTest.isNotEmpty) {

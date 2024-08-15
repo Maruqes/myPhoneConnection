@@ -24,6 +24,7 @@ class MediaPlayer {
   String album = "";
   int length = 0;
   int position = 0;
+  bool paused = true;
 
   void clearMediaPlayer() {
     mediaPlayer = Players(currentPlayer: "", properties: []);
@@ -32,11 +33,23 @@ class MediaPlayer {
     album = "";
     length = 0;
     position = 0;
+    paused = true;
+  }
+
+  void shutAllNots(){
+    nots.shutAllNots();
   }
 
   void setPosition(String newPosition) {
+    final data = newPosition.split("|/|");
+    if (data[1] == "true") {
+      paused = true;
+    } else {
+      paused = false;
+    }
     if (url != "" && title != "" && album != "" && length != 0) {
-      nots.notifyMediaPlayer(title, album, url, length, int.parse(newPosition));
+      nots.notifyMediaPlayer(
+          title, album, url, length, int.parse(data[0]), paused);
     }
   }
 
@@ -64,15 +77,19 @@ class MediaPlayer {
             album = metadata["xesam:artist"][0];
           }
           if (metadata["mpris:artUrl"] != null) {
-            album = metadata["mpris:artUrl"];
+            url = metadata["mpris:artUrl"];
           }
         } catch (e) {
           debugPrint("Error: $e");
         }
       }
-    }
-    if (mediaPlayer.properties[0].key == "Position") {
-      position = int.parse(mediaPlayer.properties[0].value);
+      if (mediaPlayer.properties[j].key == "PlaybackStatus") {
+        if (mediaPlayer.properties[j].value == "\"Playing\"") {
+          paused = false;
+        } else {
+          paused = true;
+        }
+      }
     }
 
     debugPrint("URL: $url");
@@ -80,9 +97,9 @@ class MediaPlayer {
     debugPrint("Album: $album");
     debugPrint("Length: $length");
     debugPrint("Position: $position");
-
+    debugPrint("Paused: $paused");
     if (title != "") {
-      nots.notifyMediaPlayer(title, album, url, length, position);
+      nots.notifyMediaPlayer(title, album, url, length, position, paused);
     }
   }
 

@@ -100,7 +100,13 @@ func updateUI() {
 	imageGallery.Refresh()
 	imgNumberFooter.Refresh()
 	maxImgNumberFooter.Refresh()
+}
 
+func clearCacheImages() {
+	cacheImages = []*ImageButton{}
+	initApp()
+
+	updateUI()
 }
 
 func processImage(img64 string) (*canvas.Image, error) {
@@ -188,7 +194,7 @@ func addCacheImages(imgBytes string, first bool) {
 	log.Println("addCacheImages completed")
 	addingImages = false
 	updateUI()
-	// addNewImages()
+	addNewImages()
 }
 
 func calculateImagesToAdd(batch int, length int) []fyne.CanvasObject {
@@ -282,6 +288,8 @@ func addFIRSTImages() {
 }
 
 func initApp() {
+	imageGallery.Objects = []fyne.CanvasObject{}
+	numberOfImages = 0
 	imgOffset = 0
 	loadingPhotos = false
 	addingImages = false

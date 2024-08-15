@@ -5,6 +5,7 @@ import 'dart:ui';
 
 import 'package:myphoneconnection/config.dart';
 import 'package:flutter/material.dart';
+import 'package:myphoneconnection/main.dart';
 import 'package:myphoneconnection/mediaPlayer.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -256,22 +257,29 @@ class PairedDevices {
       Device device, ConnectionSave oldSave) async {
     final HttpClient client = HttpClient();
     client.connectionTimeout = const Duration(seconds: 3);
-    final HttpClientRequest request = await client.get(
-      device.ip,
-      int.parse(device.port),
-      '/startNextPassProtocol',
-    );
-    final HttpClientResponse response = await request.close();
-    final String reply = await response.transform(utf8.decoder).join();
+    HttpClientRequest request;
+    try {
+      HttpClientRequest request = await client.get(
+        device.ip,
+        int.parse(device.port),
+        '/startNextPassProtocol',
+      );
+      final HttpClientResponse response = await request.close();
+      final String reply = await response.transform(utf8.decoder).join();
 
-    final last8Bytes = oldSave.nextPass.sublist(8, 16);
-    final last8BytesBase64 = base64.encode(last8Bytes);
-    if (reply == last8BytesBase64) {
-      debugPrint('Connection is going with ${device.ip}');
-      await checkNextPasswordProtocolLast(device, oldSave);
-    } else {
-      debugPrint('Connection failed with ${device.ip}');
+      final last8Bytes = oldSave.nextPass.sublist(8, 16);
+      final last8BytesBase64 = base64.encode(last8Bytes);
+      if (reply == last8BytesBase64) {
+        debugPrint('Connection is going with ${device.ip}');
+        await checkNextPasswordProtocolLast(device, oldSave);
+      } else {
+        debugPrint('Connection failed with ${device.ip}');
+        deleteConnectionSave(oldSave, device);
+      }
+    } catch (e) {
+      debugPrint('Error: $e');
       deleteConnectionSave(oldSave, device);
+      return;
     }
   }
 
@@ -358,11 +366,12 @@ class WebSocketConnection {
       final data = dec.split("dataMediaPlayer//||//")[1];
       mediaPlayer.updateData(data);
     } else if (dec.contains("clearMediaPlayer")) {
-      mediaPlayer.mediaPlayer.properties = [];
-      mediaPlayer.mediaPlayer.currentPlayer = "";
+      mediaPlayer.clearMediaPlayer();
     } else if (dec.contains("setMediaPosition//")) {
       final data = dec.split("setMediaPosition//")[1];
       mediaPlayer.setPosition(data);
+    } else if (dec.contains("shutAllNots")) {
+      mediaPlayer.shutAllNots();
     }
   }
 
@@ -385,6 +394,9 @@ class WebSocketConnection {
     isConnected = true;
     sendData("createdSocket");
     debugPrint("WebSocket created");
+
+    nots.setListeners();
+    nots.init();
   }
 
   bool checkWsConnection() {

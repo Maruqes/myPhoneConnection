@@ -16,7 +16,6 @@ Notify nots = Notify();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  nots.init();
 
   ListenToPort().initListenPort();
 
@@ -52,8 +51,6 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   void initState() {
-    nots.setListeners();
-
     super.initState();
     globalDeviceListNotifier.addListener(_updateDeviceList);
   }

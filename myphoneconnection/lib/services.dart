@@ -138,6 +138,10 @@ class Notify {
   AwesomeNotifications myAwesomeNots = AwesomeNotifications();
   int mediaPlayerID = -1;
 
+  void shutAllNots() {
+    myAwesomeNots.cancelAll();
+  }
+
   Future<void> init() async {
     await myAwesomeNots.initialize(
       null, //'resource://drawable/res_app_icon',//
@@ -150,9 +154,12 @@ class Notify {
           playSound: false,
           enableVibration: false,
           vibrationPattern: null,
-          importance: NotificationImportance.Low,
+          importance: NotificationImportance.Min,
           defaultPrivacy: NotificationPrivacy.Public,
-        )
+          onlyAlertOnce: true,
+          groupAlertBehavior: GroupAlertBehavior.Summary,
+          channelShowBadge: false,
+        ),
       ],
     );
 
@@ -165,6 +172,8 @@ class Notify {
   }
 
   void setListeners() {
+    debugPrint("Listeners set");
+
     myAwesomeNots.setListeners(
         onActionReceivedMethod: NotificationController.onActionReceivedMethod,
         onNotificationCreatedMethod:
@@ -173,6 +182,7 @@ class Notify {
             NotificationController.onNotificationDisplayedMethod,
         onDismissActionReceivedMethod:
             NotificationController.onDismissActionReceivedMethod);
+    debugPrint("Listeners really set");
   }
 
   Future<String> saveLinkPngInDisk(String link) async {
@@ -187,8 +197,8 @@ class Notify {
   }
 
   //set a new media player notification with buttons
-  Future<void> notifyMediaPlayer(
-      String title, String body, String link, int length, int position) async {
+  Future<void> notifyMediaPlayer(String title, String body, String link,
+      int length, int position, bool paused) async {
     double positionInt = 0;
     if (length <= 0 || position < 0) {
     } else {
@@ -219,7 +229,9 @@ class Notify {
         duration: Duration(microseconds: length),
         progress: positionInt,
         playbackSpeed: 1.0,
-        playState: NotificationPlayState.playing,
+        playState: paused
+            ? NotificationPlayState.paused
+            : NotificationPlayState.playing,
         summary: "Now Playing",
         notificationLayout: NotificationLayout.MediaPlayer,
         largeIcon: path,
@@ -233,21 +245,21 @@ class Notify {
             icon: 'resource://drawable/res_pause',
             autoDismissible: false,
             showInCompactView: true,
-            actionType: ActionType.KeepOnTop),
+            actionType: ActionType.SilentAction),
         NotificationActionButton(
             key: 'next',
             label: 'Next',
             icon: 'resource://drawable/res_next',
             autoDismissible: false,
             showInCompactView: true,
-            actionType: ActionType.KeepOnTop),
+            actionType: ActionType.SilentAction),
         NotificationActionButton(
             key: 'previous',
             label: 'Previous',
             icon: 'resource://drawable/res_previous',
             autoDismissible: false,
             showInCompactView: true,
-            actionType: ActionType.KeepOnTop),
+            actionType: ActionType.SilentAction),
       ],
     );
   }

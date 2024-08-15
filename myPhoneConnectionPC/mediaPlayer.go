@@ -25,13 +25,39 @@ var lastPlayer string
 func pauseOrPlayMedia() {
 	conn, err := dbus.SessionBus()
 	if err != nil {
-		log.Fatalf("Failed to connect to session bus: %v", err)
+		log.Println("Failed to connect to session bus: ", err)
 	}
 
 	object := conn.Object(lastPlayer, "/org/mpris/MediaPlayer2")
 	call := object.Call("org.mpris.MediaPlayer2.Player.PlayPause", 0)
 	if call.Err != nil {
-		log.Fatalf("Failed to pause or play media: %v", call.Err)
+		log.Println("Failed to pause or play media: ", call.Err)
+	}
+}
+
+func nextMedia() {
+	conn, err := dbus.SessionBus()
+	if err != nil {
+		log.Println("Failed to connect to session bus: ", err)
+	}
+
+	object := conn.Object(lastPlayer, "/org/mpris/MediaPlayer2")
+	call := object.Call("org.mpris.MediaPlayer2.Player.Next", 0)
+	if call.Err != nil {
+		log.Println("Failed to play next media: ", call.Err)
+	}
+}
+
+func previousMedia() {
+	conn, err := dbus.SessionBus()
+	if err != nil {
+		log.Println("Failed to connect to session bus: ", err)
+	}
+
+	object := conn.Object(lastPlayer, "/org/mpris/MediaPlayer2")
+	call := object.Call("org.mpris.MediaPlayer2.Player.Previous", 0)
+	if call.Err != nil {
+		log.Println("Failed to play previous media: ", call.Err)
 	}
 }
 
@@ -40,7 +66,11 @@ func mediaAction(media string) {
 	if media == "pause" {
 		pauseOrPlayMedia()
 	} else if media == "next" {
+		nextMedia()
 	} else if media == "previous" {
+		previousMedia()
+	} else {
+		log.Println("Unknown media action")
 	}
 }
 
@@ -85,6 +115,27 @@ func getPosition(owner string) (int, error) {
 	return int(position), nil
 }
 
+func isPaused(owner string) (bool, error) {
+	conn, err := dbus.SessionBus()
+	if err != nil {
+		return false, err
+	}
+
+	object := conn.Object(owner, "/org/mpris/MediaPlayer2")
+	call := object.Call("org.freedesktop.DBus.Properties.Get", 0, "org.mpris.MediaPlayer2.Player", "PlaybackStatus")
+	if call.Err != nil {
+		return false, call.Err
+	}
+
+	var status string
+	err = call.Store(&status)
+	if err != nil {
+		return false, err
+	}
+
+	return status == "Paused", nil
+}
+
 func routineToSyncPosition() {
 	for {
 		time.Sleep(1 * time.Second)
@@ -94,11 +145,20 @@ func routineToSyncPosition() {
 
 		position, err := getPosition(currentPlayer[len(currentPlayer)-1].currentPlayer)
 		if err != nil {
-			// log.Printf("Error getting position: %v", err)
-		} else {
-			stringPosition := fmt.Sprintf("%d", position)
-			ws.sendData(fmt.Sprintf("setMediaPosition//" + stringPosition))
+			log.Println("Failed to get position:", err)
+			time.Sleep(30 * time.Second)
 		}
+		isPausedvar, err := isPaused(currentPlayer[len(currentPlayer)-1].currentPlayer)
+		if err != nil {
+			log.Println("Failed to get isPaused:", err)
+		}
+
+		isPausedS := "false"
+		if isPausedvar {
+			isPausedS = "true"
+		}
+		stringPosition := fmt.Sprintf("%d", position)
+		ws.sendData(fmt.Sprintf("setMediaPosition//" + stringPosition + "|/|" + isPausedS))
 	}
 }
 
@@ -249,6 +309,10 @@ func listenToChangesAndOwner() {
 								currentPlayer = append(currentPlayer[:i], currentPlayer[i+1:]...)
 								break
 							}
+						}
+
+						if len(currentPlayer) == 0 {
+							ws.sendData("shutAllNots")
 						}
 
 					} else {

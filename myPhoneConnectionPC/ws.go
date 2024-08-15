@@ -13,6 +13,11 @@ type Ws struct {
 	socket   *websocket.Conn
 }
 
+func webSocketKilled() {
+	log.Println("Websocket killed")
+	clearCacheImages()
+}
+
 func (ws *Ws) recieveData(s []byte, recMsg func(s string)) {
 	res, _ := decryptAES(*ws.ws_key, string(s))
 	recMsg(res)
@@ -36,6 +41,7 @@ func (ws *Ws) httpWS(recMsg func(s string), key *[]byte) {
 			_, message, err := c.ReadMessage()
 			if err != nil {
 				log.Println("read:", err)
+				webSocketKilled()
 				break
 			}
 			ws.recieveData(message, recMsg)
