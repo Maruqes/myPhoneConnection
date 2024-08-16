@@ -131,6 +131,9 @@ func wsMessages(s string) {
 		image_file := strings.Replace(s, "media//", "", 1)
 
 		mediaAction(image_file)
+	} else if strings.Contains(s, "newPhoneNotification//") {
+		data := strings.Replace(s, "newPhoneNotification//", "", 1)
+		newNotification(data)
 	} else {
 		log.Println("WS:", s)
 	}

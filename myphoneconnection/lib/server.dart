@@ -387,8 +387,12 @@ class WebSocketConnection {
       debugPrint('WebSocket done');
       isConnected = false;
       connectionPC = ConnectionPC();
+      notificationListener.stopListening();
     }, onError: (error) {
       debugPrint('WebSocket error: $error');
+      isConnected = false;
+      connectionPC = ConnectionPC();
+      notificationListener.stopListening();
     }, cancelOnError: true);
 
     isConnected = true;
@@ -397,6 +401,9 @@ class WebSocketConnection {
 
     nots.setListeners();
     nots.init();
+
+    notificationListener.initPlatformState();
+    notificationListener.startListening();
   }
 
   bool checkWsConnection() {

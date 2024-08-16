@@ -14,6 +14,8 @@ ValueNotifier<List<Device>> globalDeviceListNotifier =
 
 Notify nots = Notify();
 
+OurNotificationListener notificationListener = OurNotificationListener();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 

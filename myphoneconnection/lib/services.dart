@@ -12,6 +12,7 @@ import 'package:myphoneconnection/server.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:myphoneconnection/galleryFunctions.dart';
+import 'package:flutter_notification_listener/flutter_notification_listener.dart';
 
 class ListenToPort {
   List<Device> devicesTempToAdd = [];
@@ -44,6 +45,13 @@ class ListenToPort {
     IsolateNameServer.registerPortWithName(port3.sendPort, 'setDevices');
     port3.listen((_) {
       globalDeviceListNotifier.value = List.from(devicesTempToAdd);
+    });
+
+    ReceivePort port4 = ReceivePort();
+    IsolateNameServer.registerPortWithName(port4.sendPort, '_listener_');
+    port4.listen((not) {
+      debugPrint("Received notification");
+      debugPrint(not.toString());
     });
   }
 }
@@ -172,8 +180,6 @@ class Notify {
   }
 
   void setListeners() {
-    debugPrint("Listeners set");
-
     myAwesomeNots.setListeners(
         onActionReceivedMethod: NotificationController.onActionReceivedMethod,
         onNotificationCreatedMethod:
@@ -182,7 +188,7 @@ class Notify {
             NotificationController.onNotificationDisplayedMethod,
         onDismissActionReceivedMethod:
             NotificationController.onDismissActionReceivedMethod);
-    debugPrint("Listeners really set");
+    debugPrint("Listeners set");
   }
 
   Future<String> saveLinkPngInDisk(String link) async {
@@ -262,5 +268,66 @@ class Notify {
             actionType: ActionType.SilentAction),
       ],
     );
+  }
+}
+
+class OurNotificationListener {
+  bool init = false;
+  void onData(NotificationEvent event) {
+    if (event.packageName == "com.example.myphoneconnection") return;
+    debugPrint(event.toString());
+    connectionPC.ws.sendData("newPhoneNotification//${jsonEncode(event)}");
+  }
+
+  @pragma('vm:entry-point')
+  static void _callback(NotificationEvent evt) {
+    if (evt.packageName == "com.example.myphoneconnection") return;
+
+    connectionPC.ws
+        .sendData("newPhoneNotification//${jsonEncode(evt.toString())}");
+
+    debugPrint("send evt to ui: $evt");
+    // final SendPort? send = IsolateNameServer.lookupPortByName("_listener_");
+    // if (send == null) debugPrint("can't find the sender");
+    // send?.send(evt);
+  }
+
+  Future<void> initPlatformState() async {
+    try {
+      NotificationsListener.initialize(
+          callbackHandle:
+              _callback); // register you event handler in the ui logic.
+      NotificationsListener.receivePort?.listen((evt) => onData(evt));
+    } catch (e) {
+      debugPrint("Error in initPlatformState: $e");
+    }
+  }
+
+  void startListening() async {
+    try {
+      debugPrint("start listening");
+      var hasPermission = await NotificationsListener.hasPermission;
+      if (!hasPermission!) {
+        debugPrint("no permission, so open settings");
+        NotificationsListener.openPermissionSettings();
+        return;
+      }
+
+      var isR = await NotificationsListener.isRunning;
+
+      if (!isR!) {
+        await NotificationsListener.startService();
+        init = true;
+      }
+    } catch (e) {
+      debugPrint("Error in startListening: $e");
+    }
+  }
+
+  void stopListening() async {
+    if (init) {
+      await NotificationsListener.stopService();
+      init = false;
+    }
   }
 }

@@ -312,7 +312,7 @@ func listenToChangesAndOwner() {
 						}
 
 						if len(currentPlayer) == 0 {
-							ws.sendData("shutAllNots")
+							ws.sendData("	")
 						}
 
 					} else {
