@@ -257,7 +257,6 @@ class PairedDevices {
       Device device, ConnectionSave oldSave) async {
     final HttpClient client = HttpClient();
     client.connectionTimeout = const Duration(seconds: 3);
-    HttpClientRequest request;
     try {
       HttpClientRequest request = await client.get(
         device.ip,
