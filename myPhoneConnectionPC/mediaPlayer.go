@@ -163,6 +163,9 @@ func routineToSyncPosition() {
 }
 
 func syncDataWithWS() {
+	if len(currentPlayer) == 0 {
+		return
+	}
 	ws.sendData("clearMediaPlayer")
 
 	curPlayer := currentPlayer[len(currentPlayer)-1]
