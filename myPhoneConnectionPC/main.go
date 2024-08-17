@@ -139,6 +139,21 @@ func wsMessages(s string) {
 	}
 }
 
+func checkFullPass(fullPassb64 string) bool {
+	fullPassOUR, err := ReadFromFile("nextPass.bin")
+	if err != nil {
+		log.Println("Error reading nextPass:", err)
+	}
+
+	fullPassOURb64 := base64.StdEncoding.EncodeToString(fullPassOUR)
+
+	if fullPassOURb64 == fullPassb64 {
+		return true
+	} else {
+		return false
+	}
+}
+
 func serverFunc() {
 
 	info := getPCstats()
@@ -167,14 +182,25 @@ func serverFunc() {
 			return
 		}
 
-		//deve aqui aceitar o dispositivo
-
 		// Access the JSON data
 		brand := data["brand"].(string)
 		model := data["model"].(string)
 		id := data["id"].(string)
 		publicKey_modulus := data["publicKey_modulus"].(string)
 		publicKey_exponent := data["publicKey_exponent"].(string)
+		fullPassb64 := data["fullPass"].(string)
+
+		log.Println("FullPass:", fullPassb64)
+
+		if fullPassb64 == "" {
+			//should ask for connection with a pop up to let it go through
+		} else {
+			if !checkFullPass(fullPassb64) {
+				fmt.Fprintf(w, "fullPass not correct")
+				fmt.Println("fullPass not correct")
+				return
+			}
+		}
 
 		log.Printf("Brand: %s, Model: %s, ID: %s  publicKey: %s ", brand, model, id, publicKey_modulus)
 
@@ -199,32 +225,6 @@ func serverFunc() {
 		last8Bytes := data[len(data)-8:]
 
 		fmt.Fprint(w, base64.StdEncoding.EncodeToString(last8Bytes))
-	})
-
-	http.HandleFunc("/nextPassProtocolLastPass", func(w http.ResponseWriter, r *http.Request) {
-		var data map[string]interface{}
-		err := json.NewDecoder(r.Body).Decode(&data)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		// Access the JSON data
-		fullPassb64 := data["fullPass"].(string)
-
-		fullPassOUR, err := ReadFromFile("nextPass.bin")
-		if err != nil {
-			log.Println("Error reading nextPass:", err)
-		}
-
-		fullPassOURb64 := base64.StdEncoding.EncodeToString(fullPassOUR)
-
-		if fullPassOURb64 == fullPassb64 {
-			fmt.Fprint(w, "OK")
-		} else {
-			fmt.Fprint(w, "NOTOK")
-		}
-
 	})
 
 	ws.httpWS(wsMessages, &key)

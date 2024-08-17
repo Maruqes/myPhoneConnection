@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
 import 'dart:math';
+import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:awesome_notifications/awesome_notifications.dart';
+import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:myphoneconnection/main.dart';
@@ -13,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:myphoneconnection/galleryFunctions.dart';
 import 'package:flutter_notification_listener/flutter_notification_listener.dart';
+import 'package:device_apps/device_apps.dart';
 
 class ListenToPort {
   List<Device> devicesTempToAdd = [];
@@ -45,13 +48,6 @@ class ListenToPort {
     IsolateNameServer.registerPortWithName(port3.sendPort, 'setDevices');
     port3.listen((_) {
       globalDeviceListNotifier.value = List.from(devicesTempToAdd);
-    });
-
-    ReceivePort port4 = ReceivePort();
-    IsolateNameServer.registerPortWithName(port4.sendPort, '_listener_');
-    port4.listen((not) {
-      debugPrint("Received notification");
-      debugPrint(not.toString());
     });
   }
 }
@@ -273,23 +269,50 @@ class Notify {
 
 class OurNotificationListener {
   bool init = false;
-  void onData(NotificationEvent event) {
-    if (event.packageName == "com.example.myphoneconnection") return;
-    debugPrint(event.toString());
-    connectionPC.ws.sendData("newPhoneNotification//${jsonEncode(event)}");
+
+  static Future<String> getIconWithPackageName(String package) async {
+    List<Application> apps = await DeviceApps.getInstalledApplications(
+        onlyAppsWithLaunchIntent: true,
+        includeAppIcons: true,
+        includeSystemApps: true);
+
+    for (var app in apps) {
+      if (app.packageName == package) {
+        String iconBase64 =
+            base64.encode(app is ApplicationWithIcon ? app.icon : Uint8List(0));
+        return iconBase64;
+      }
+    }
+    return "";
+  }
+
+  void actionOnNotification(String uid) async {
+    try {
+      NotificationsListener.tapNotificationAction(uid, 0);
+    } catch (e) {
+      debugPrint("Error in actionOnNotification: $e");
+    }
+  }
+
+  static void onData(NotificationEvent evt) async {
+    try {
+      if (evt.packageName == "com.example.myphoneconnection") return;
+
+      String iconb64 = base64.encode(evt.largeIcon!);
+
+      String appIcon = await getIconWithPackageName(evt.packageName!);
+      connectionPC.ws.sendData(
+          "newPhoneNotification//${jsonEncode(evt.toString())}//||//$iconb64//||//$appIcon//||//${evt.uniqueId}");
+
+      debugPrint("send evt to ui: $evt");
+    } catch (e) {
+      debugPrint("Error in onData: $e");
+    }
   }
 
   @pragma('vm:entry-point')
-  static void _callback(NotificationEvent evt) {
-    if (evt.packageName == "com.example.myphoneconnection") return;
-
-    connectionPC.ws
-        .sendData("newPhoneNotification//${jsonEncode(evt.toString())}");
-
-    debugPrint("send evt to ui: $evt");
-    // final SendPort? send = IsolateNameServer.lookupPortByName("_listener_");
-    // if (send == null) debugPrint("can't find the sender");
-    // send?.send(evt);
+  static void _callback(NotificationEvent evt) async {
+    onData(evt);
   }
 
   Future<void> initPlatformState() async {
@@ -325,9 +348,13 @@ class OurNotificationListener {
   }
 
   void stopListening() async {
-    if (init) {
-      await NotificationsListener.stopService();
-      init = false;
+    try {
+      if (init) {
+        await NotificationsListener.stopService();
+        init = false;
+      }
+    } catch (e) {
+      debugPrint("Error in stopListening: $e");
     }
   }
 }

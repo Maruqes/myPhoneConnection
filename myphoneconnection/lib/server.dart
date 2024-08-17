@@ -7,6 +7,7 @@ import 'package:myphoneconnection/config.dart';
 import 'package:flutter/material.dart';
 import 'package:myphoneconnection/main.dart';
 import 'package:myphoneconnection/mediaPlayer.dart';
+import 'package:myphoneconnection/services.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import "package:pointycastle/export.dart";
@@ -227,30 +228,10 @@ class PairedDevices {
     }
   }
 
+  //should check the fact that it is giving full pass
   Future<void> checkNextPasswordProtocolLast(
       Device device, ConnectionSave oldSave) async {
-    //clear connection save FALTA DAR CLEAR CARALHO
-
-    final HttpClient client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 30);
-    final HttpClientRequest request = await client.postUrl(
-      Uri.parse('http://${device.ip}:${device.port}/nextPassProtocolLastPass'),
-    );
-
-    request.headers.set('Content-Type', 'application/json');
-    request.write(jsonEncode({
-      'fullPass': base64.encode(oldSave.nextPass),
-    }));
-
-    final HttpClientResponse response = await request.close();
-    final String reply = await response.transform(utf8.decoder).join();
-    if (reply == 'OK') {
-      debugPrint('Trying after NextPass OK ${device.ip}');
-      await connectionPC.startConnectionWithPc(device);
-    } else {
-      debugPrint('Connection failed with ${device.ip}');
-      deleteConnectionSave(oldSave, device);
-    }
+    await connectionPC.startConnectionWithPc(device, oldSave);
   }
 
   Future<void> checkNextPasswordProtocol(
@@ -371,6 +352,9 @@ class WebSocketConnection {
       mediaPlayer.setPosition(data);
     } else if (dec.contains("shutAllNots")) {
       mediaPlayer.shutAllNots();
+    } else if (dec.contains("notActions//")) {
+      final data = dec.split("notActions//")[1];
+      OurNotificationListener().actionOnNotification(data);
     }
   }
 
@@ -427,7 +411,8 @@ class ConnectionPC {
     return key;
   }
 
-  Future<HttpClient> askForConnection(Device device) async {
+  Future<HttpClient> askForConnection(
+      Device device, ConnectionSave oldSave) async {
     DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
     AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
 
@@ -450,10 +435,16 @@ class ConnectionPC {
       'id': androidInfo.id,
       'publicKey_modulus': publicKey.modulus.toString(),
       'publicKey_exponent': publicKey.exponent.toString(),
+      'fullPass': base64.encode(oldSave.nextPass),
     }));
 
     final HttpClientResponse response = await request.close();
     final String reply = await response.transform(utf8.decoder).join();
+    if (reply == "fullPass not correct") {
+      debugPrint('fullPass not correct ${device.ip}');
+      client.connectionTimeout = const Duration(seconds: 1);
+      return client;
+    }
 
     final key = decryptKey(privateKey, reply);
 
@@ -461,12 +452,17 @@ class ConnectionPC {
     return client;
   }
 
-  Future<void> startConnectionWithPc(Device device) async {
+  Future<void> startConnectionWithPc(
+      Device device, ConnectionSave oldSave) async {
     if (ws.checkWsConnection()) {
       debugPrint('Already connected');
       return;
     }
-    clientPublic = await askForConnection(device);
+    clientPublic = await askForConnection(device, oldSave);
+    if (clientPublic.connectionTimeout == const Duration(seconds: 1)) {
+      debugPrint('Connection failed');
+      return;
+    }
     debugPrint('Connected to ${device.ip}');
 
     ws.createWebSocket(key, device);

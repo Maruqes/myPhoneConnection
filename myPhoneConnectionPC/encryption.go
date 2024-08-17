@@ -183,6 +183,22 @@ func saveImage(imgDecompressed []byte) {
 	log.Println("Image saved successfully with path:", filePath)
 }
 
+func saveTemporaryImage(imgDecompressed []byte) (string, error) {
+	// Save image to the temporary folder
+	tempDir := os.TempDir()
+	fileName := "image" + createRandomString(8) + ".jpeg"
+	filePath := filepath.Join(tempDir, fileName)
+
+	err := ioutil.WriteFile(filePath, imgDecompressed, 0644)
+	if err != nil {
+		log.Printf("Error saving image file: %v", err)
+		return "", err
+	}
+
+	log.Println("Image saved successfully with path:", filePath)
+	return filePath, nil
+}
+
 func saveVideo(video []byte) {
 	// Save image to the downloads folder
 	downloadsDir, err := os.UserHomeDir()
