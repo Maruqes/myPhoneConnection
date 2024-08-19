@@ -45,6 +45,8 @@ const IMAGES_BATCH = 12
 
 var placeholderImage = canvas.NewRectangle(color.Transparent)
 
+var started = false
+
 // func resizeImage(img []byte, width uint) ([]byte, error) {
 // 	imgDecoded, _, err := image.Decode(bytes.NewReader(img))
 // 	if err != nil {
@@ -197,6 +199,14 @@ func addCacheImages(imgBytes string, first bool) {
 	addNewImages()
 }
 
+func addCacheImagesFirst(data string){
+	addCacheImages(data, true)
+}
+
+func addCacheImagesFalse(data string){
+	addCacheImages(data, false)
+}
+
 func calculateImagesToAdd(batch int, length int) []fyne.CanvasObject {
 	if imgOffset+batch > len(cacheImages) {
 		batch = len(cacheImages) - imgOffset
@@ -274,17 +284,18 @@ func addNewImages() {
 	}
 
 	log.Println("Requesting new images")
-	ws.sendData("askImages")
+	ws.sendData("askImages", "")
 }
 
-func addFIRSTImages() {
+func addFIRSTImages(s string) {
 	if !ws.isConnectionAlive() {
 		log.Println("WebSocket connection is not alive")
 		return
 	}
 
 	log.Println("Requesting new images")
-	ws.sendData("firstImages")
+	ws.sendData("firstImages", "")
+	syncDataWithWS() //temprarly here
 }
 
 func initApp() {
@@ -347,6 +358,11 @@ func createUI() {
 
 	initApp()
 	mainWindow.Resize(fyne.NewSize(1000, 600))
+
+	for !started {
+		time.Sleep(500 * time.Millisecond)
+	}
+
 	mainWindow.ShowAndRun()
 }
 
@@ -362,9 +378,13 @@ func onReady() {
 		for {
 			select {
 			case <-mShow.ClickedCh:
+				if !started {
+					started = true
+				}
 				mainWindow.Show()
 			case <-mQuit.ClickedCh:
 				mainApp.Quit()
+				os.Exit(0)
 			}
 		}
 	}()

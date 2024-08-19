@@ -13,6 +13,26 @@ type Ws struct {
 	socket   *websocket.Conn
 }
 
+type dataStream struct {
+	indentifier string
+	function    func(s string)
+}
+
+var dataStreams []dataStream
+
+func (ws *Ws) registerDataStreams(indentifiers string, recMsg func(s string)) {
+	dataStreams = append(dataStreams, dataStream{indentifiers, recMsg})
+}
+
+func (ws *Ws) searchDataStream(indentifiers string) func(s string) {
+	for _, d := range dataStreams {
+		if d.indentifier == indentifiers {
+			return d.function
+		}
+	}
+	return nil
+}
+
 func webSocketKilled() {
 	log.Println("Websocket killed")
 	clearCacheImages()
@@ -53,10 +73,14 @@ func (ws *Ws) isConnectionAlive() bool {
 	return ws.socket != nil
 }
 
-func (ws *Ws) sendData(s string) {
+func (ws *Ws) sendData(indentifier string, s string) {
 	if !ws.isConnectionAlive() {
 		return
 	}
+	if(s == ""){
+		s = "null"
+	}
+	s = indentifier + "//||DIVIDER||\\\\" + s
 	encrypted, _ := encryptAES(*ws.ws_key, s)
 	ws.socket.WriteMessage(websocket.TextMessage, []byte(encrypted))
 }

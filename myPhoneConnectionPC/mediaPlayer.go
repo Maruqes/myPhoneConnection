@@ -158,7 +158,7 @@ func routineToSyncPosition() {
 			isPausedS = "true"
 		}
 		stringPosition := fmt.Sprintf("%d", position)
-		ws.sendData(fmt.Sprintf("setMediaPosition//" + stringPosition + "|/|" + isPausedS))
+		ws.sendData("setMediaPosition", fmt.Sprintf(stringPosition+"|/|"+isPausedS))
 	}
 }
 
@@ -166,15 +166,15 @@ func syncDataWithWS() {
 	if len(currentPlayer) == 0 {
 		return
 	}
-	ws.sendData("clearMediaPlayer")
+	ws.sendData("clearMediaPlayer", "")
 
 	curPlayer := currentPlayer[len(currentPlayer)-1]
 	log.Printf("Syncing data for player: %s\n", curPlayer.currentPlayer)
 	for i, p := range curPlayer.properties {
 		if i == len(curPlayer.properties)-1 {
-			ws.sendData(fmt.Sprintf("dataMediaPlayer//||//%s:div:%s:div:%s:div:END", curPlayer.currentPlayer, p.key, p.value))
+			ws.sendData("dataMediaPlayer", fmt.Sprintf("%s:div:%s:div:%s:div:END", curPlayer.currentPlayer, p.key, p.value))
 		}
-		ws.sendData(fmt.Sprintf("dataMediaPlayer//||//%s:div:%s:div:%s:div:NOTEND", curPlayer.currentPlayer, p.key, p.value))
+		ws.sendData("dataMediaPlayer", fmt.Sprintf("%s:div:%s:div:%s:div:NOTEND", curPlayer.currentPlayer, p.key, p.value))
 	}
 	lastPlayer = curPlayer.currentPlayer
 }
@@ -315,7 +315,7 @@ func listenToChangesAndOwner() {
 						}
 
 						if len(currentPlayer) == 0 {
-							ws.sendData("	")
+							ws.sendData("shutAllNots", "")
 						}
 
 					} else {

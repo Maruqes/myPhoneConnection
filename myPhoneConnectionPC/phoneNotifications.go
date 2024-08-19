@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -24,6 +25,36 @@ func getdunstifyPath() string {
 		return ""
 	}
 	return path
+}
+
+func showAcceptPhoneNotification(title string, text string) (bool, error) {
+	dunstifyPath := getdunstifyPath()
+	if dunstifyPath == "" {
+		fmt.Println("dunstify not found")
+		return false, errors.New("dunstify not found")
+	}
+
+	accept := "Accept"
+	decline := "Decline"
+
+	command := dunstifyPath + " " + "\"" + title + "\"" + " " + "\"" + text + "\"" + " --action=" + "\"" + accept + "\"" + "," + "\"Accept\" --action=" + "\"" + decline + "\"" + "," + "\"Decline\""
+	log.Println("Command: ", command)
+	cmd := exec.Command("sh", "-c", command)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Println("Error executing command:", err)
+	}
+
+	out := strings.ReplaceAll(string(output), "\n", "")
+	if out == accept {
+		fmt.Println("Action: ", "Accept")
+		return true, nil
+	} else if out == decline {
+		fmt.Println("Action: ", "Decline")
+		return false, nil
+	} else {
+		return false, errors.New("No action")
+	}
 }
 
 func showNotifications(title string, text string, iconPath string, miniIconPath string, actions []NotificationAction) {
@@ -75,10 +106,9 @@ func showNotifications(title string, text string, iconPath string, miniIconPath 
 	for i := range actions {
 		if out == actions[i].index {
 			fmt.Println("Action: ", actions[i].text)
-			ws.sendData("notAction//" + actions[i].uid + "//" + actions[i].index)
+			ws.sendData("notAction", actions[i].uid+"//"+actions[i].index)
 		}
 	}
-
 }
 
 func newNotification(fullData string) {

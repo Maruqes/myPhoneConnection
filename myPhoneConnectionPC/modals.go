@@ -220,6 +220,6 @@ func askForFullImageForModal(index int) {
 	clearCanvas()
 	createTheModalItself()
 	showLowResImageInModal(index - 1)
-	ws.sendData(fmt.Sprintf("askFullImage//%d", index-1))
+	ws.sendData("askFullImage", fmt.Sprintf("%d", index-1))
 	currentIndexOnModal = index
 }

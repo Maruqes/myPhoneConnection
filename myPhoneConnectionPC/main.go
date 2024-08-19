@@ -97,46 +97,53 @@ func nextPassSave(s string) {
 }
 
 func wsMessages(s string) {
-	if strings.Contains(s, "nextPass//") {
-		nextPassSave(s)
-	} else if strings.Contains(s, "imagetest") {
-		image_file := strings.Replace(s, "imagetest//", "", 1)
+	fullData := strings.Split(s, "//||DIVIDER||\\\\") /// [0] is the identifier, [1] is the data
+	funcToCall := ws.searchDataStream(fullData[0])
 
-		addCacheImages(image_file, false)
-
-	} else if strings.Contains(s, "imageFirst") {
-		image_file := strings.Replace(s, "imageFirst//", "", 1)
-
-		addCacheImages(image_file, false)
-		loadCurrentImages()
-	} else if s == "createdSocket" {
-		addFIRSTImages()
-		syncDataWithWS()
-	} else if strings.Contains(s, "updateGallery//") {
-		image_file := strings.Replace(s, "updateGallery//", "", 1)
-
-		addCacheImages(image_file, true)
-		loadCurrentImages()
-
-	} else if strings.Contains(s, "fullImage//") {
-		image_file := strings.Replace(s, "fullImage//", "", 1)
-
-		showImageInModal(image_file)
-
-	} else if strings.Contains(s, "fullVIDEO//") {
-		image_file := strings.Replace(s, "fullVIDEO//", "", 1)
-
-		showVideoInModal(image_file)
-	} else if strings.Contains(s, "media//") {
-		image_file := strings.Replace(s, "media//", "", 1)
-
-		mediaAction(image_file)
-	} else if strings.Contains(s, "newPhoneNotification//") {
-		data := strings.Replace(s, "newPhoneNotification//", "", 1)
-		newNotification(data)
-	} else {
-		log.Println("WS:", s)
+	if funcToCall != nil {
+		funcToCall(fullData[1])
 	}
+
+	// if strings.Contains(s, "nextPass//") {
+	// 	nextPassSave(s)
+	// } else if strings.Contains(s, "imagetest") {
+	// 	image_file := strings.Replace(s, "imagetest//", "", 1)
+
+	// 	addCacheImages(image_file, false)
+
+	// } else if strings.Contains(s, "imageFirst") {
+	// 	image_file := strings.Replace(s, "imageFirst//", "", 1)
+
+	// 	addCacheImages(image_file, false)
+	// 	loadCurrentImages()
+	// } else if s == "createdSocket" {
+	// 	addFIRSTImages()
+	// 	syncDataWithWS()
+	// } else if strings.Contains(s, "updateGallery//") {
+	// 	image_file := strings.Replace(s, "updateGallery//", "", 1)
+
+	// 	addCacheImages(image_file, true)
+	// 	loadCurrentImages()
+
+	// } else if strings.Contains(s, "fullImage//") {
+	// 	image_file := strings.Replace(s, "fullImage//", "", 1)
+
+	// 	showImageInModal(image_file)
+
+	// } else if strings.Contains(s, "fullVIDEO//") {
+	// 	image_file := strings.Replace(s, "fullVIDEO//", "", 1)
+
+	// 	showVideoInModal(image_file)
+	// } else if strings.Contains(s, "media//") {
+	// 	image_file := strings.Replace(s, "media//", "", 1)
+
+	// 	mediaAction(image_file)
+	// } else if strings.Contains(s, "newPhoneNotification//") {
+	// 	data := strings.Replace(s, "newPhoneNotification//", "", 1)
+	// 	newNotification(data)
+	// } else {
+	// 	log.Println("WS:", s)
+	// }
 }
 
 func checkFullPass(fullPassb64 string) bool {
@@ -194,6 +201,17 @@ func serverFunc() {
 
 		if fullPassb64 == "" {
 			//should ask for connection with a pop up to let it go through
+			accepted, err := showAcceptPhoneNotification(brand, model)
+			if err != nil {
+				fmt.Fprintf(w, "Error showing notification")
+				fmt.Println("Error showing notification")
+				return
+			}
+			if !accepted {
+				fmt.Fprintf(w, "Connection not accepted")
+				fmt.Println("Connection not accepted")
+				return
+			}
 		} else {
 			if !checkFullPass(fullPassb64) {
 				fmt.Fprintf(w, "fullPass not correct")
@@ -238,8 +256,24 @@ func serverFunc() {
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
 
+func printit(s string) {
+	log.Println(s)
+}
+
 func main() {
+	ws.registerDataStreams("null", printit)
+	ws.registerDataStreams("nextPass", nextPassSave)
+	ws.registerDataStreams("imagetest", addCacheImagesFalse)
+	ws.registerDataStreams("imageFirst", addCacheImagesFalse)
+	ws.registerDataStreams("createdSocket", addFIRSTImages)
+	ws.registerDataStreams("updateGallery", addCacheImagesFirst)
+	ws.registerDataStreams("fullImage", showImageInModal)
+	ws.registerDataStreams("fullVIDEO", showVideoInModal)
+	ws.registerDataStreams("media", mediaAction)
+	ws.registerDataStreams("newPhoneNotification", newNotification)
+
 	go serverFunc()
 	go listenToChangesAndOwner()
+	go clipboardCopyCallBack()
 	createUI()
 }

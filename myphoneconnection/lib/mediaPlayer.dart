@@ -26,7 +26,7 @@ class MediaPlayer {
   int position = 0;
   bool paused = true;
 
-  void clearMediaPlayer() {
+  void clearMediaPlayer(String nullS) {
     mediaPlayer = Players(currentPlayer: "", properties: []);
     url = "";
     title = "";
@@ -36,7 +36,7 @@ class MediaPlayer {
     paused = true;
   }
 
-  void shutAllNots(){
+  void shutAllNots(String nullS){
     nots.shutAllNots();
   }
 

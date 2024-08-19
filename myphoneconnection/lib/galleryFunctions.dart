@@ -61,13 +61,17 @@ class GalleryFunctions {
   }
 
   Future<void> sendFullImage(index) async {
+    int actualIndex = int.parse(index);
+    debugPrint("SENDING FULL IMAGE $actualIndex");
     final MediaPage imagePage = await imageAlbums[0].listMedia(
-      skip: index,
+      skip: actualIndex,
       take: 1,
     );
+    debugPrint("STEP2 1");
     final image = await imagePage.items[0].getFile();
     final mediaType = imagePage.items[0].mediumType;
 
+    debugPrint("STEP2 2");
     Uint8List res = Uint8List(0);
     if (mediaType == MediumType.image) {
       res = await FlutterImageCompress.compressWithList(
@@ -83,9 +87,10 @@ class GalleryFunctions {
     final imagesb64Bytes = base64.encode(compressedImage);
 
     if (mediaType == MediumType.video) {
-      connectionPC.ws.sendData("fullVIDEO//$imagesb64Bytes");
+      connectionPC.ws.sendData("fullVIDEO", imagesb64Bytes);
     } else if (mediaType == MediumType.image) {
-      connectionPC.ws.sendData("fullImage//$imagesb64Bytes");
+      debugPrint("STEP2 3");
+      connectionPC.ws.sendData("fullImage", imagesb64Bytes);
     }
     debugPrint("SENDING FULL IMAGE $index with size ${imagesb64Bytes.length}");
   }
@@ -119,13 +124,15 @@ class GalleryFunctions {
     return "$imagesb64Bytes//DIVIDER//";
   }
 
-  Future<void> sendImages() async {
+  Future<void> sendImages(String nullS) async {
     if (gettingImages) return;
 
     gettingImages = true;
     List<Future<String>> futures = [];
 
     debugPrint("Step 1");
+    debugPrint("We are getting: $numberOfImages images");
+    debugPrint("imagesIndex: $imagesIndex");
     final imageTest = await getImageThumbnailFromGalleryWithIndex(
         numberOfImages, imagesIndex);
     var resBytes = "";
@@ -145,13 +152,13 @@ class GalleryFunctions {
 
     debugPrint("Step 4");
     debugPrint("resBytes length: ${resBytes.length}");
-    connectionPC.ws.sendData("imagetest//$resBytes");
+    connectionPC.ws.sendData("imagetest", resBytes);
     imagesIndex += numberOfImages;
     gettingImages = false;
     debugPrint("Step 5");
   }
 
-  Future<void> sendFirstImages() async {
+  Future<void> sendFirstImages(String nullS) async {
     debugPrint("SENDING FIRST IMAGES");
 
     int numberOfImagesFIRST = 100;
@@ -181,7 +188,7 @@ class GalleryFunctions {
       resBytes += result;
     }
     debugPrint("resBytes length: ${resBytes.length}");
-    connectionPC.ws.sendData("imageFirst//$resBytes");
+    connectionPC.ws.sendData("imageFirst", resBytes);
     imagesIndex += numberOfImagesFIRST;
   }
 
@@ -220,7 +227,7 @@ class GalleryFunctions {
 
     debugPrint("Sending NEW images  $numberOfNewImages");
     debugPrint("resBytes length: ${resBytes.length}");
-    connectionPC.ws.sendData("updateGallery//$resBytes");
+    connectionPC.ws.sendData("updateGallery", resBytes);
     imagesIndex += numberOfNewImages;
     sendingNewImages = false;
     return true;

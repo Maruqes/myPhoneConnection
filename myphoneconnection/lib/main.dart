@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:myphoneconnection/clipboard.dart';
 import 'package:myphoneconnection/server.dart';
 import 'package:myphoneconnection/services.dart';
 import 'package:flutter/material.dart';
@@ -116,7 +117,8 @@ class DeviceListWidget extends StatelessWidget {
   DeviceListWidget({Key? key, required this.devices}) : super(key: key);
 
   void tryConnection(Device device) {
-    connectionPC.startConnectionWithPc(device, ConnectionSave(device, Uint8List(0)));
+    connectionPC.startConnectionWithPc(
+        device, ConnectionSave(device, Uint8List(0)));
   }
 
   @override

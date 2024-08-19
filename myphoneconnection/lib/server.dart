@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui';
 
+import 'package:myphoneconnection/clipboard.dart';
 import 'package:myphoneconnection/config.dart';
 import 'package:flutter/material.dart';
 import 'package:myphoneconnection/main.dart';
@@ -301,8 +302,8 @@ class PairedDevices {
     ws = ws_;
     final nextPass = generateRandomBytes(16);
     final nextPassBase64 = base64.encode(nextPass);
-    final data = "nextPass//$nextPassBase64";
-    ws.sendData(data);
+    final data = nextPassBase64;
+    ws.sendData("nextPass", data);
 
     ConnectionSave save = ConnectionSave(
       device,
@@ -311,6 +312,13 @@ class PairedDevices {
 
     writeConnectionSave(save, device);
   }
+}
+
+class DataStream {
+  String indetifier;
+  Function function;
+
+  DataStream(this.indetifier, this.function);
 }
 
 //when sending new img after killin app it crashes:D
@@ -322,44 +330,85 @@ class WebSocketConnection {
   GalleryFunctions galleryFunctions = GalleryFunctions();
   MediaPlayer mediaPlayer = MediaPlayer();
 
-  void sendData(String data) {
+  List<DataStream> dataStreams = [];
+
+  void registerDataStream(String identifier, Function(String) function) {
+    dataStreams.add(DataStream(identifier, function));
+  }
+
+  Function getFunction(String identifier) {
+    for (var dataStream in dataStreams) {
+      if (dataStream.indetifier == identifier) {
+        return dataStream.function;
+      }
+    }
+    return () {};
+  }
+
+  void sendData(String identifier, String data) {
+    String res = "$identifier//||DIVIDER||\\\\$data";
+
     if (isConnected == false) {
       debugPrint('Not connected');
       return;
     }
-    final encData = encryptAES(key, data);
+    final encData = encryptAES(key, res);
     channel.sink.add(encData);
   }
 
   Future<void> recieveData(String data) async {
     final dec = decryptAES(key, data);
 
+    final fullData = dec.split("//||DIVIDER||\\\\");
+    final identifier = fullData[0];
+    final data_ = fullData[1];
+    final funcToCall = getFunction(identifier);
+    funcToCall(data_);
+
     // debugPrint('Recieved dec: $dec');
-    if (dec == "askImages") {
-      galleryFunctions.sendImages();
-    } else if (dec == "firstImages") {
-      galleryFunctions.sendFirstImages();
-    } else if (dec.contains("askFullImage//")) {
-      final index = int.parse(dec.split("//")[1]);
-      galleryFunctions.sendFullImage(index);
-    } else if (dec.contains("dataMediaPlayer//||//")) {
-      final data = dec.split("dataMediaPlayer//||//")[1];
-      mediaPlayer.updateData(data);
-    } else if (dec.contains("clearMediaPlayer")) {
-      mediaPlayer.clearMediaPlayer();
-    } else if (dec.contains("setMediaPosition//")) {
-      final data = dec.split("setMediaPosition//")[1];
-      mediaPlayer.setPosition(data);
-    } else if (dec.contains("shutAllNots")) {
-      mediaPlayer.shutAllNots();
-    } else if (dec.contains("notActions//")) {
-      final data = dec.split("notActions//")[1];
-      OurNotificationListener().actionOnNotification(data);
-    }
+    // if (dec == "askImages") {
+    //   galleryFunctions.sendImages();
+    // } else if (dec == "firstImages") {
+    //   galleryFunctions.sendFirstImages();
+    // } else if (dec.contains("askFullImage//")) {
+    //   final index = int.parse(dec.split("//")[1]);
+    //   galleryFunctions.sendFullImage(index);
+    // } else if (dec.contains("dataMediaPlayer//||//")) {
+    //   final data = dec.split("dataMediaPlayer//||//")[1];
+    //   mediaPlayer.updateData(data);
+    // } else if (dec.contains("clearMediaPlayer")) {
+    //   mediaPlayer.clearMediaPlayer();
+    // } else if (dec.contains("setMediaPosition//")) {
+    //   final data = dec.split("setMediaPosition//")[1];
+    //   mediaPlayer.setPosition(data);
+    // } else if (dec.contains("shutAllNots")) {
+    //   mediaPlayer.shutAllNots();
+    // } else if (dec.contains("notAction//")) {
+    //   final data = dec.split("notAction//")[1];
+    //   OurNotificationListener().actionOnNotification(data);
+    // } else if (dec.contains("clipboard//||//&&//||//")) {
+    //   final data = dec.split("clipboard//||//&&//||//")[1];
+    //   ClipboardUniversal().copy(data);
+    // } else if (dec.contains("clipboardIMG//||//&&//||//")) {
+    //   final data = dec.split("clipboardIMG//||//&&//||//")[1];
+    //   ClipboardUniversal().copyIMG(data);
+    // }
   }
 
   void createWebSocket(Uint8List key_, Device device) {
     key = key_;
+
+    registerDataStream("askImages", galleryFunctions.sendImages);
+    registerDataStream("firstImages", galleryFunctions.sendFirstImages);
+    registerDataStream("askFullImage", galleryFunctions.sendFullImage);
+    registerDataStream("dataMediaPlayer", mediaPlayer.updateData);
+    registerDataStream("clearMediaPlayer", mediaPlayer.clearMediaPlayer);
+    registerDataStream("setMediaPosition", mediaPlayer.setPosition);
+    registerDataStream("shutAllNots", mediaPlayer.shutAllNots);
+    registerDataStream(
+        "notAction", OurNotificationListener().actionOnNotification);
+    registerDataStream("clipboard", ClipboardUniversal().copy);
+    registerDataStream("clipboardIMG", ClipboardUniversal().copyIMG);
 
     channel = WebSocketChannel.connect(
       Uri.parse('ws://${device.ip}:${device.port}/ws'),
@@ -379,7 +428,7 @@ class WebSocketConnection {
     }, cancelOnError: true);
 
     isConnected = true;
-    sendData("createdSocket");
+    sendData("createdSocket", "null");
     debugPrint("WebSocket created");
 
     nots.setListeners();
@@ -442,6 +491,14 @@ class ConnectionPC {
     final String reply = await response.transform(utf8.decoder).join();
     if (reply == "fullPass not correct") {
       debugPrint('fullPass not correct ${device.ip}');
+      client.connectionTimeout = const Duration(seconds: 1);
+      return client;
+    } else if (reply == "Connection not accepted") {
+      debugPrint('Connection not accepted ${device.ip}');
+      client.connectionTimeout = const Duration(seconds: 1);
+      return client;
+    } else if (reply == "Error showing notification") {
+      debugPrint('Connection already accepted ${device.ip}');
       client.connectionTimeout = const Duration(seconds: 1);
       return client;
     }

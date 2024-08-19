@@ -129,11 +129,11 @@ class NotificationController {
       ReceivedAction receivedAction) async {
     debugPrint("Action received");
     if (receivedAction.buttonKeyPressed == "pause") {
-      connectionPC.ws.sendData("media//pause");
+      connectionPC.ws.sendData("media", "pause");
     } else if (receivedAction.buttonKeyPressed == "next") {
-      connectionPC.ws.sendData("media//next");
+      connectionPC.ws.sendData("media", "next");
     } else if (receivedAction.buttonKeyPressed == "previous") {
-      connectionPC.ws.sendData("media//previous");
+      connectionPC.ws.sendData("media", "previous");
     }
   }
 }
@@ -301,8 +301,8 @@ class OurNotificationListener {
       String iconb64 = base64.encode(evt.largeIcon!);
 
       String appIcon = await getIconWithPackageName(evt.packageName!);
-      connectionPC.ws.sendData(
-          "newPhoneNotification//${jsonEncode(evt.toString())}//||//$iconb64//||//$appIcon//||//${evt.uniqueId}");
+      connectionPC.ws.sendData("newPhoneNotification",
+          "${jsonEncode(evt.toString())}//||//$iconb64//||//$appIcon//||//${evt.uniqueId}");
 
       debugPrint("send evt to ui: $evt");
     } catch (e) {
