@@ -18,12 +18,8 @@ import (
 )
 
 /*
-ideias: 1. nos modal popups, adicionar um botão para fazer download do ficheiro etc etc ->done
-		1.2. nos modal popups, enquanto nao recebemos a images full, mostrar a de baixa resolução ->done
-
-		2. manter uma cache baixada de todas as imagens e dar load, assumir q tudo esta certo e confirmar com o server
-
 		IMPORTANTE: DELETION OF IMAGES ON PHONE
+		AINDA TENS DE VER A CONEXÃO COM O PHONE 
 */
 
 var ws Ws
@@ -103,47 +99,6 @@ func wsMessages(s string) {
 	if funcToCall != nil {
 		funcToCall(fullData[1])
 	}
-
-	// if strings.Contains(s, "nextPass//") {
-	// 	nextPassSave(s)
-	// } else if strings.Contains(s, "imagetest") {
-	// 	image_file := strings.Replace(s, "imagetest//", "", 1)
-
-	// 	addCacheImages(image_file, false)
-
-	// } else if strings.Contains(s, "imageFirst") {
-	// 	image_file := strings.Replace(s, "imageFirst//", "", 1)
-
-	// 	addCacheImages(image_file, false)
-	// 	loadCurrentImages()
-	// } else if s == "createdSocket" {
-	// 	addFIRSTImages()
-	// 	syncDataWithWS()
-	// } else if strings.Contains(s, "updateGallery//") {
-	// 	image_file := strings.Replace(s, "updateGallery//", "", 1)
-
-	// 	addCacheImages(image_file, true)
-	// 	loadCurrentImages()
-
-	// } else if strings.Contains(s, "fullImage//") {
-	// 	image_file := strings.Replace(s, "fullImage//", "", 1)
-
-	// 	showImageInModal(image_file)
-
-	// } else if strings.Contains(s, "fullVIDEO//") {
-	// 	image_file := strings.Replace(s, "fullVIDEO//", "", 1)
-
-	// 	showVideoInModal(image_file)
-	// } else if strings.Contains(s, "media//") {
-	// 	image_file := strings.Replace(s, "media//", "", 1)
-
-	// 	mediaAction(image_file)
-	// } else if strings.Contains(s, "newPhoneNotification//") {
-	// 	data := strings.Replace(s, "newPhoneNotification//", "", 1)
-	// 	newNotification(data)
-	// } else {
-	// 	log.Println("WS:", s)
-	// }
 }
 
 func checkFullPass(fullPassb64 string) bool {

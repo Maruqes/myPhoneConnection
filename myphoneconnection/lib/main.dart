@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:myphoneconnection/clipboard.dart';
 import 'package:myphoneconnection/server.dart';
@@ -117,8 +118,8 @@ class DeviceListWidget extends StatelessWidget {
   DeviceListWidget({Key? key, required this.devices}) : super(key: key);
 
   void tryConnection(Device device) {
-    connectionPC.startConnectionWithPc(
-        device, ConnectionSave(device, Uint8List(0)));
+    String stringToSend = "${device.hostname}|div|${device.os}|div|${device.CPU}|div|${device.RAM}|div|${device.ip}|div|${device.port}";
+    IsolateNameServer.lookupPortByName('callService')?.send(stringToSend);
   }
 
   @override

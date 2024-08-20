@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
@@ -48,6 +49,8 @@ func (ws *Ws) httpWS(recMsg func(s string), key *[]byte) {
 	ws.ws_key = key
 
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		pass := r.URL.Query().Get("pass")
+
 		c, err := upgrader.Upgrade(w, r, nil)
 		ws.socket = c
 
@@ -56,6 +59,19 @@ func (ws *Ws) httpWS(recMsg func(s string), key *[]byte) {
 			return
 		}
 		defer c.Close()
+
+		fmt.Println("pass:", pass)
+		passdec, err := decryptAES(*ws.ws_key, pass)
+		if err != nil {
+			log.Println("Error decrypting pass:", err)
+			return
+		}
+		if passdec != "ableToConnect" {
+			log.Println("Unauthorized on WS")
+			return
+		} else {
+			log.Println("Connection established")
+		}
 
 		for {
 			_, message, err := c.ReadMessage()
@@ -77,7 +93,7 @@ func (ws *Ws) sendData(indentifier string, s string) {
 	if !ws.isConnectionAlive() {
 		return
 	}
-	if(s == ""){
+	if s == "" {
 		s = "null"
 	}
 	s = indentifier + "//||DIVIDER||\\\\" + s

@@ -9,6 +9,24 @@ import (
 	"github.com/godbus/dbus/v5"
 )
 
+/*
+2024/08/20 03:31:14 Failed to get position: Message recipient disconnected from message bus without replying
+panic: runtime error: index out of range [-1]
+
+goroutine 39 [running]:
+main.routineToSyncPosition()
+
+	/projects/myPhoneConnection/myPhoneConnectionPC/mediaPlayer.go:151 +0x2bc
+
+created by main.listenToChangesAndOwner in goroutine 7
+
+	/projects/myPhoneConnection/myPhoneConnectionPC/mediaPlayer.go:280 +0x28b
+
+exit status 2
+make: *** [Makefile:2: run] Error 1
+
+replicar-> tenta ver um video no insta e fecha
+*/
 type Properties struct {
 	key   string
 	value string

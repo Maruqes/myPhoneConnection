@@ -171,3 +171,7 @@ Uint8List decompressData(Uint8List data) {
   final decompressedData = gzipDecoder.decodeBytes(data);
   return Uint8List.fromList(decompressedData);
 }
+
+String urlEncode(String data) {
+  return Uri.encodeComponent(data);
+}

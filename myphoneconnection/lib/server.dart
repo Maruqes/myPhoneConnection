@@ -265,6 +265,11 @@ class PairedDevices {
   }
 
   Future<void> connectToAlreadyPairedDevice(Device device) async {
+    if (connectionPC.isTryingToConnect() ||
+        connectionPC.ws.checkWsConnection()) {
+      return;
+    }
+
     int index = 0;
     ConnectionSave? oldSave = await readConnectionSave("connectionSave", index);
 
@@ -364,38 +369,9 @@ class WebSocketConnection {
     final data_ = fullData[1];
     final funcToCall = getFunction(identifier);
     funcToCall(data_);
-
-    // debugPrint('Recieved dec: $dec');
-    // if (dec == "askImages") {
-    //   galleryFunctions.sendImages();
-    // } else if (dec == "firstImages") {
-    //   galleryFunctions.sendFirstImages();
-    // } else if (dec.contains("askFullImage//")) {
-    //   final index = int.parse(dec.split("//")[1]);
-    //   galleryFunctions.sendFullImage(index);
-    // } else if (dec.contains("dataMediaPlayer//||//")) {
-    //   final data = dec.split("dataMediaPlayer//||//")[1];
-    //   mediaPlayer.updateData(data);
-    // } else if (dec.contains("clearMediaPlayer")) {
-    //   mediaPlayer.clearMediaPlayer();
-    // } else if (dec.contains("setMediaPosition//")) {
-    //   final data = dec.split("setMediaPosition//")[1];
-    //   mediaPlayer.setPosition(data);
-    // } else if (dec.contains("shutAllNots")) {
-    //   mediaPlayer.shutAllNots();
-    // } else if (dec.contains("notAction//")) {
-    //   final data = dec.split("notAction//")[1];
-    //   OurNotificationListener().actionOnNotification(data);
-    // } else if (dec.contains("clipboard//||//&&//||//")) {
-    //   final data = dec.split("clipboard//||//&&//||//")[1];
-    //   ClipboardUniversal().copy(data);
-    // } else if (dec.contains("clipboardIMG//||//&&//||//")) {
-    //   final data = dec.split("clipboardIMG//||//&&//||//")[1];
-    //   ClipboardUniversal().copyIMG(data);
-    // }
   }
 
-  void createWebSocket(Uint8List key_, Device device) {
+  void createWebSocket(Uint8List key_, Device device) async {
     key = key_;
 
     registerDataStream("askImages", galleryFunctions.sendImages);
@@ -410,22 +386,36 @@ class WebSocketConnection {
     registerDataStream("clipboard", ClipboardUniversal().copy);
     registerDataStream("clipboardIMG", ClipboardUniversal().copyIMG);
 
-    channel = WebSocketChannel.connect(
-      Uri.parse('ws://${device.ip}:${device.port}/ws'),
-    );
-    channel.stream.listen((message) {
-      recieveData(message);
-    }, onDone: () {
-      debugPrint('WebSocket done');
+    final passForWS = encryptAES(key, "ableToConnect");
+
+    debugPrint('pass=$passForWS');
+
+    final passforWSURL = urlEncode(passForWS);
+
+    try {
+      channel = WebSocketChannel.connect(
+        Uri.parse('ws://${device.ip}:${device.port}/ws?pass=$passforWSURL'),
+      );
+
+      channel.stream.listen((message) {
+        recieveData(message);
+      }, onDone: () {
+        debugPrint('WebSocket done');
+        isConnected = false;
+        connectionPC = ConnectionPC();
+        notificationListener.stopListening();
+      }, onError: (error) {
+        debugPrint('WebSocket error: $error');
+        isConnected = false;
+        connectionPC = ConnectionPC();
+        notificationListener.stopListening();
+      }, cancelOnError: true);
+    } catch (e) {
+      debugPrint("Error: $e");
       isConnected = false;
       connectionPC = ConnectionPC();
       notificationListener.stopListening();
-    }, onError: (error) {
-      debugPrint('WebSocket error: $error');
-      isConnected = false;
-      connectionPC = ConnectionPC();
-      notificationListener.stopListening();
-    }, cancelOnError: true);
+    }
 
     isConnected = true;
     sendData("createdSocket", "null");
@@ -509,22 +499,34 @@ class ConnectionPC {
     return client;
   }
 
+  bool tryingToConnect = false;
+
+  bool isTryingToConnect() {
+    return tryingToConnect;
+  }
+
   Future<void> startConnectionWithPc(
       Device device, ConnectionSave oldSave) async {
+    tryingToConnect = true;
     if (ws.checkWsConnection()) {
       debugPrint('Already connected');
+      tryingToConnect = false;
       return;
     }
     clientPublic = await askForConnection(device, oldSave);
     if (clientPublic.connectionTimeout == const Duration(seconds: 1)) {
       debugPrint('Connection failed');
+      tryingToConnect = false;
       return;
     }
-    debugPrint('Connected to ${device.ip}');
 
     ws.createWebSocket(key, device);
 
     pairedDevices.setNextPasswordForConnection(device, ws);
+
+    debugPrint('Connected to ${device.ip}');
+    tryingToConnect =
+        false; //dont worry because we have isConnected //i separated the 2 in isConected and tryingToConnect
   }
 
   Future<void> startProtocol(port) async {
