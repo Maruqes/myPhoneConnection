@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
-import 'package:flutter/foundation.dart';
-import 'package:myphoneconnection/clipboard.dart';
+import 'package:flutter_notification_listener/flutter_notification_listener.dart';
 import 'package:myphoneconnection/server.dart';
 import 'package:myphoneconnection/services.dart';
 import 'package:flutter/material.dart';
@@ -17,15 +16,13 @@ ValueNotifier<List<Device>> globalDeviceListNotifier =
 
 Notify nots = Notify();
 
-OurNotificationListener notificationListener = OurNotificationListener();
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   ListenToPort().initListenPort();
 
   await PcService().initializeService();
-
+  NotificationsListener.stopService();
   runApp(MyApp());
 }
 
@@ -55,9 +52,40 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  bool started = false;
   void initState() {
     super.initState();
     globalDeviceListNotifier.addListener(_updateDeviceList);
+    
+  }
+
+  void _startListening() async {
+    debugPrint("start listening");
+    var hasPermission = await NotificationsListener.hasPermission;
+    if (hasPermission == null || !hasPermission) {
+      debugPrint("no permission, so open settings");
+      NotificationsListener.openPermissionSettings();
+      return;
+    }
+
+    var isR = await NotificationsListener.isRunning;
+
+    if (isR == null || !isR) {
+      await NotificationsListener.startService();
+    }
+
+    setState(() => started = true);
+  }
+
+  @pragma('vm:entry-point')
+  static void _onData(NotificationEvent event) {
+    debugPrint(event.toString());
+  }
+
+  Future<void> _initPlatformState() async {
+    NotificationsListener.initialize(callbackHandle: _onData);
+    // register you event handler in the ui logic.
+    NotificationsListener.receivePort?.listen((evt) => _onData(evt));
   }
 
   @override
@@ -118,7 +146,8 @@ class DeviceListWidget extends StatelessWidget {
   DeviceListWidget({Key? key, required this.devices}) : super(key: key);
 
   void tryConnection(Device device) {
-    String stringToSend = "${device.hostname}|div|${device.os}|div|${device.CPU}|div|${device.RAM}|div|${device.ip}|div|${device.port}";
+    String stringToSend =
+        "${device.hostname}|div|${device.os}|div|${device.CPU}|div|${device.RAM}|div|${device.ip}|div|${device.port}";
     IsolateNameServer.lookupPortByName('callService')?.send(stringToSend);
   }
 

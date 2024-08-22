@@ -36,20 +36,28 @@ class MediaPlayer {
     paused = true;
   }
 
-  void shutAllNots(String nullS){
-    nots.shutAllNots();
+  void shutAllNots(String nullS) {
+    try {
+      nots.shutAllNots();
+    } catch (e) {
+      debugPrint("Error: $e");
+    }
   }
 
   void setPosition(String newPosition) {
-    final data = newPosition.split("|/|");
-    if (data[1] == "true") {
-      paused = true;
-    } else {
-      paused = false;
-    }
-    if (url != "" && title != "" && album != "" && length != 0) {
-      nots.notifyMediaPlayer(
-          title, album, url, length, int.parse(data[0]), paused);
+    try {
+      final data = newPosition.split("|/|");
+      if (data[1] == "true") {
+        paused = true;
+      } else {
+        paused = false;
+      }
+      if (url != "" && title != "" && album != "" && length != 0) {
+        nots.notifyMediaPlayer(
+            title, album, url, length, int.parse(data[0]), paused);
+      }
+    } catch (e) {
+      debugPrint("Error: $e");
     }
   }
 

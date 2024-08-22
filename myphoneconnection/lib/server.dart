@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui';
 
+import 'package:flutter_notification_listener/flutter_notification_listener.dart';
 import 'package:myphoneconnection/clipboard.dart';
 import 'package:myphoneconnection/config.dart';
 import 'package:flutter/material.dart';
@@ -368,7 +369,11 @@ class WebSocketConnection {
     final identifier = fullData[0];
     final data_ = fullData[1];
     final funcToCall = getFunction(identifier);
-    funcToCall(data_);
+    try {
+      funcToCall(data_);
+    } catch (e) {
+      debugPrint("Error: $e");
+    }
   }
 
   void createWebSocket(Uint8List key_, Device device) async {
@@ -381,8 +386,8 @@ class WebSocketConnection {
     registerDataStream("clearMediaPlayer", mediaPlayer.clearMediaPlayer);
     registerDataStream("setMediaPosition", mediaPlayer.setPosition);
     registerDataStream("shutAllNots", mediaPlayer.shutAllNots);
-    registerDataStream(
-        "notAction", OurNotificationListener().actionOnNotification);
+    // registerDataStream(
+    //     "notAction", OurNotificationListener().actionOnNotification);
     registerDataStream("clipboard", ClipboardUniversal().copy);
     registerDataStream("clipboardIMG", ClipboardUniversal().copyIMG);
 
@@ -403,29 +408,34 @@ class WebSocketConnection {
         debugPrint('WebSocket done');
         isConnected = false;
         connectionPC = ConnectionPC();
-        notificationListener.stopListening();
       }, onError: (error) {
         debugPrint('WebSocket error: $error');
         isConnected = false;
         connectionPC = ConnectionPC();
-        notificationListener.stopListening();
       }, cancelOnError: true);
     } catch (e) {
       debugPrint("Error: $e");
       isConnected = false;
       connectionPC = ConnectionPC();
-      notificationListener.stopListening();
     }
 
     isConnected = true;
     sendData("createdSocket", "null");
     debugPrint("WebSocket created");
 
-    nots.setListeners();
-    nots.init();
+    try {
+      nots.setListeners();
+      nots.init();
+    } catch (e) {
+      debugPrint("Error: $e");
+    }
 
-    notificationListener.initPlatformState();
-    notificationListener.startListening();
+    try {
+      OurNotificationListener().initPlatformState();
+      OurNotificationListener().startListening();
+    } catch (e) {
+      debugPrint("Error: $e");
+    }
   }
 
   bool checkWsConnection() {

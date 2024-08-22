@@ -199,11 +199,11 @@ func addCacheImages(imgBytes string, first bool) {
 	addNewImages()
 }
 
-func addCacheImagesFirst(data string){
+func addCacheImagesFirst(data string) {
 	addCacheImages(data, true)
 }
 
-func addCacheImagesFalse(data string){
+func addCacheImagesFalse(data string) {
 	addCacheImages(data, false)
 }
 
@@ -337,6 +337,9 @@ func createUI() {
 
 	footer := container.New(layout.NewHBoxLayout(), layout.NewSpacer(), imgNumberFooter, layout.NewSpacer(), maxImgNumberFooter, layout.NewSpacer())
 
+	buttonTEST := widget.NewButton("TEST", func() {
+	})
+
 	content := container.NewVBox(
 		container.NewHBox(
 			blContainer,
@@ -345,6 +348,7 @@ func createUI() {
 		),
 		layout.NewSpacer(), // Adds space between the main content and footer
 		footer,
+		buttonTEST,
 	)
 
 	mainWindow.SetContent(content)

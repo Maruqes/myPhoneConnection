@@ -61,55 +61,69 @@ class GalleryFunctions {
   }
 
   Future<void> sendFullImage(index) async {
-    int actualIndex = int.parse(index);
-    debugPrint("SENDING FULL IMAGE $actualIndex");
-    final MediaPage imagePage = await imageAlbums[0].listMedia(
-      skip: actualIndex,
-      take: 1,
-    );
-    debugPrint("STEP2 1");
-    final image = await imagePage.items[0].getFile();
-    final mediaType = imagePage.items[0].mediumType;
-
-    debugPrint("STEP2 2");
-    Uint8List res = Uint8List(0);
-    if (mediaType == MediumType.image) {
-      res = await FlutterImageCompress.compressWithList(
-        image.readAsBytesSync(),
-        quality: 85,
-        format: CompressFormat.jpeg,
+    try {
+      int actualIndex = int.parse(index);
+      debugPrint("SENDING FULL IMAGE $actualIndex");
+      final MediaPage imagePage = await imageAlbums[0].listMedia(
+        skip: actualIndex,
+        take: 1,
       );
-    } else {
-      res = image.readAsBytesSync();
-    }
+      debugPrint("STEP2 1");
+      final image = await imagePage.items[0].getFile();
+      final mediaType = imagePage.items[0].mediumType;
 
-    final compressedImage = compressData(res);
-    final imagesb64Bytes = base64.encode(compressedImage);
+      debugPrint("STEP2 2");
+      Uint8List res = Uint8List(0);
+      if (mediaType == MediumType.image) {
+        res = await FlutterImageCompress.compressWithList(
+          image.readAsBytesSync(),
+          quality: 85,
+          format: CompressFormat.jpeg,
+        );
+      } else {
+        res = image.readAsBytesSync();
+      }
 
-    if (mediaType == MediumType.video) {
-      connectionPC.ws.sendData("fullVIDEO", imagesb64Bytes);
-    } else if (mediaType == MediumType.image) {
-      debugPrint("STEP2 3");
-      connectionPC.ws.sendData("fullImage", imagesb64Bytes);
+      final compressedImage = compressData(res);
+      final imagesb64Bytes = base64.encode(compressedImage);
+
+      if (mediaType == MediumType.video) {
+        connectionPC.ws.sendData("fullVIDEO", imagesb64Bytes);
+      } else if (mediaType == MediumType.image) {
+        debugPrint("STEP2 3");
+        connectionPC.ws.sendData("fullImage", imagesb64Bytes);
+      }
+      debugPrint(
+          "SENDING FULL IMAGE $index with size ${imagesb64Bytes.length}");
+    } catch (e) {
+      debugPrint("Error: $e");
     }
-    debugPrint("SENDING FULL IMAGE $index with size ${imagesb64Bytes.length}");
   }
 
   Future<List<List<int>>> getImageThumbnailFromGalleryWithIndex(
       int numberOfImages, int index) async {
-    debugPrint("GETTING IMAGES");
+    try {
+      debugPrint("GETTING IMAGES");
+      debugPrint("We are getting: $numberOfImages images");
+      debugPrint("Index: $index");
 
-    final MediaPage imagePage = await imageAlbums[0].listMedia(
-      skip: index,
-      take: numberOfImages,
-    );
+      debugPrint("getImageThumb step1");
+      final MediaPage imagePage = await imageAlbums[0].listMedia(
+        skip: index,
+        take: numberOfImages,
+      );
 
-    final ret = await Future.wait(imagePage.items
-        .map((Medium media) =>
-            media.getThumbnail(highQuality: true, width: imageWidth))
-        .toList());
+      debugPrint("getImageThumb step2");
+      final ret = await Future.wait(imagePage.items
+          .map((Medium media) =>
+              media.getThumbnail(highQuality: true, width: imageWidth))
+          .toList());
 
-    return ret;
+      return ret;
+    } catch (e) {
+      debugPrint("Error: $e");
+      return [];
+    }
   }
 
   Future<String> imageTreatment(List<int> image) async {
@@ -125,71 +139,78 @@ class GalleryFunctions {
   }
 
   Future<void> sendImages(String nullS) async {
-    if (gettingImages) return;
+    try {
+      if (gettingImages) return;
 
-    gettingImages = true;
-    List<Future<String>> futures = [];
+      gettingImages = true;
+      List<Future<String>> futures = [];
 
-    debugPrint("Step 1");
-    debugPrint("We are getting: $numberOfImages images");
-    debugPrint("imagesIndex: $imagesIndex");
-    final imageTest = await getImageThumbnailFromGalleryWithIndex(
-        numberOfImages, imagesIndex);
-    var resBytes = "";
+      debugPrint("Step 1");
 
-    debugPrint("Step 2");
-    if (imageTest.isNotEmpty) {
-      for (var image in imageTest) {
-        futures.add(imageTreatment(image));
+      final imageTest = await getImageThumbnailFromGalleryWithIndex(
+          numberOfImages, imagesIndex);
+      var resBytes = "";
+
+      debugPrint("Step 2");
+      if (imageTest.isNotEmpty) {
+        for (var image in imageTest) {
+          futures.add(imageTreatment(image));
+        }
       }
-    }
 
-    debugPrint("Step 3");
-    List<String> results = await Future.wait(futures);
-    for (var result in results) {
-      resBytes += result;
-    }
+      debugPrint("Step 3");
+      List<String> results = await Future.wait(futures);
+      for (var result in results) {
+        resBytes += result;
+      }
 
-    debugPrint("Step 4");
-    debugPrint("resBytes length: ${resBytes.length}");
-    connectionPC.ws.sendData("imagetest", resBytes);
-    imagesIndex += numberOfImages;
-    gettingImages = false;
-    debugPrint("Step 5");
+      debugPrint("Step 4");
+      debugPrint("resBytes length: ${resBytes.length}");
+      connectionPC.ws.sendData("imagetest", resBytes);
+      imagesIndex += numberOfImages;
+      gettingImages = false;
+      debugPrint("Step 5");
+    } catch (e) {
+      debugPrint("Error: $e");
+    }
   }
 
   Future<void> sendFirstImages(String nullS) async {
-    debugPrint("SENDING FIRST IMAGES");
-
-    int numberOfImagesFIRST = 100;
-
-    debugPrint("We are getting: $numberOfImagesFIRST images");
-
-    List<Future<String>> futures = [];
-
-    List<List<int>> imageTest = [];
     try {
-      imageTest = await getImageThumbnailFromGalleryWithIndex(
-          numberOfImagesFIRST, imagesIndex);
+      debugPrint("SENDING FIRST IMAGES");
+
+      int numberOfImagesFIRST = 100;
+
+      debugPrint("We are getting: $numberOfImagesFIRST images");
+
+      List<Future<String>> futures = [];
+
+      List<List<int>> imageTest = [];
+      try {
+        imageTest = await getImageThumbnailFromGalleryWithIndex(
+            numberOfImagesFIRST, imagesIndex);
+      } catch (e) {
+        debugPrint("Error: $e");
+        return;
+      }
+      var resBytes = "";
+
+      if (imageTest.isNotEmpty) {
+        for (var image in imageTest) {
+          futures.add(imageTreatment(image));
+        }
+      }
+
+      List<String> results = await Future.wait(futures);
+      for (var result in results) {
+        resBytes += result;
+      }
+      debugPrint("resBytes length: ${resBytes.length}");
+      connectionPC.ws.sendData("imageFirst", resBytes);
+      imagesIndex += numberOfImagesFIRST;
     } catch (e) {
       debugPrint("Error: $e");
-      return;
     }
-    var resBytes = "";
-
-    if (imageTest.isNotEmpty) {
-      for (var image in imageTest) {
-        futures.add(imageTreatment(image));
-      }
-    }
-
-    List<String> results = await Future.wait(futures);
-    for (var result in results) {
-      resBytes += result;
-    }
-    debugPrint("resBytes length: ${resBytes.length}");
-    connectionPC.ws.sendData("imageFirst", resBytes);
-    imagesIndex += numberOfImagesFIRST;
   }
 
 //entao... o que eu acho q estava a conetcer era no momento em q pedia novas images o numero era x, e durante o tempo de ir buscar essas x images

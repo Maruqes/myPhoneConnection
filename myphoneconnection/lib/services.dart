@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:isolate';
 import 'dart:math';
@@ -7,6 +8,7 @@ import 'dart:ui';
 
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_notification_listener/flutter_notification_listener.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:myphoneconnection/main.dart';
@@ -14,7 +16,6 @@ import 'package:myphoneconnection/server.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:myphoneconnection/galleryFunctions.dart';
-import 'package:flutter_notification_listener/flutter_notification_listener.dart';
 import 'package:device_apps/device_apps.dart';
 
 class ListenToPort {
@@ -87,25 +88,27 @@ void onStart(ServiceInstance service) async {
 
     if (connectionPC.ws.checkWsConnection() == false &&
         connectionPC.isTryingToConnect() == false) {
-      await connectionPC.startProtocol(8080);
+      try {
+        await connectionPC.startProtocol(8080);
+      } catch (e) {
+        debugPrint("Error in startProtocol: $e");
+      }
     } else {}
   });
 }
 
 class PcService {
+  final service = FlutterBackgroundService();
+
   void startBackgroundService() {
-    final service = FlutterBackgroundService();
     service.startService();
   }
 
   void stopBackgroundService() {
-    final service = FlutterBackgroundService();
     service.invoke("stop");
   }
 
   Future<void> initializeService() async {
-    final service = FlutterBackgroundService();
-
     await service.configure(
       iosConfiguration: IosConfiguration(
         autoStart: true,
@@ -121,6 +124,8 @@ class PcService {
         autoStartOnBoot: true,
       ),
     );
+    // Start the background service when the app is closed
+    startBackgroundService();
   }
 }
 
@@ -287,8 +292,6 @@ class Notify {
 }
 
 class OurNotificationListener {
-  bool init = false;
-
   static Future<String> getIconWithPackageName(String package) async {
     List<Application> apps = await DeviceApps.getInstalledApplications(
         onlyAppsWithLaunchIntent: true,
@@ -305,15 +308,24 @@ class OurNotificationListener {
     return "";
   }
 
-  void actionOnNotification(String uid) async {
-    try {
-      NotificationsListener.tapNotificationAction(uid, 0);
-    } catch (e) {
-      debugPrint("Error in actionOnNotification: $e");
+  void startListening() async {
+    debugPrint("start listening");
+    var hasPermission = await NotificationsListener.hasPermission;
+    if (hasPermission == null || !hasPermission) {
+      debugPrint("no permission, so open settings");
+      NotificationsListener.openPermissionSettings();
+      return;
+    }
+
+    var isR = await NotificationsListener.isRunning;
+
+    if (isR == null || !isR) {
+      await NotificationsListener.startService();
     }
   }
 
-  static void onData(NotificationEvent evt) async {
+  @pragma('vm:entry-point')
+  static Future<void> onData(NotificationEvent evt) async {
     try {
       if (evt.packageName == "com.example.myphoneconnection") return;
 
@@ -329,51 +341,9 @@ class OurNotificationListener {
     }
   }
 
-  @pragma('vm:entry-point')
-  static void _callback(NotificationEvent evt) async {
-    onData(evt);
-  }
-
   Future<void> initPlatformState() async {
-    try {
-      NotificationsListener.initialize(
-          callbackHandle:
-              _callback); // register you event handler in the ui logic.
-      NotificationsListener.receivePort?.listen((evt) => onData(evt));
-    } catch (e) {
-      debugPrint("Error in initPlatformState: $e");
-    }
-  }
-
-  void startListening() async {
-    try {
-      debugPrint("start listening");
-      var hasPermission = await NotificationsListener.hasPermission;
-      if (!hasPermission!) {
-        debugPrint("no permission, so open settings");
-        NotificationsListener.openPermissionSettings();
-        return;
-      }
-
-      var isR = await NotificationsListener.isRunning;
-
-      if (!isR!) {
-        await NotificationsListener.startService();
-        init = true;
-      }
-    } catch (e) {
-      debugPrint("Error in startListening: $e");
-    }
-  }
-
-  void stopListening() async {
-    try {
-      if (init) {
-        await NotificationsListener.stopService();
-        init = false;
-      }
-    } catch (e) {
-      debugPrint("Error in stopListening: $e");
-    }
+    NotificationsListener.initialize(callbackHandle: onData);
+    // register your event handler in the UI logic.
+    NotificationsListener.receivePort?.listen((evt) => onData(evt));
   }
 }
