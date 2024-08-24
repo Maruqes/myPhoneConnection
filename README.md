@@ -39,3 +39,7 @@ You can also just run the executable if it is already launched
 ## Protocol
 
 ![alt text](https://i.postimg.cc/nr0931gc/logseq-my-Phone-Connection-Protocol.png)
+
+## Known bugs
+- Media player is buggy on some devices
+- Devices does not show on the app after some time
