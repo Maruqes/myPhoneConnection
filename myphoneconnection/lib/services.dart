@@ -309,18 +309,22 @@ class OurNotificationListener {
   }
 
   void startListening() async {
-    debugPrint("start listening");
-    var hasPermission = await NotificationsListener.hasPermission;
-    if (hasPermission == null || !hasPermission) {
-      debugPrint("no permission, so open settings");
-      NotificationsListener.openPermissionSettings();
-      return;
-    }
+    try {
+      debugPrint("start listening");
+      var hasPermission = await NotificationsListener.hasPermission;
+      if (hasPermission == null || !hasPermission) {
+        debugPrint("no permission, so open settings");
+        NotificationsListener.openPermissionSettings();
+        return;
+      }
 
-    var isR = await NotificationsListener.isRunning;
+      var isR = await NotificationsListener.isRunning;
 
-    if (isR == null || !isR) {
-      await NotificationsListener.startService();
+      if (isR == null || !isR) {
+        await NotificationsListener.startService();
+      }
+    } catch (e) {
+      debugPrint("Error in startListening: $e");
     }
   }
 
@@ -342,8 +346,16 @@ class OurNotificationListener {
   }
 
   Future<void> initPlatformState() async {
-    NotificationsListener.initialize(callbackHandle: onData);
-    // register your event handler in the UI logic.
-    NotificationsListener.receivePort?.listen((evt) => onData(evt));
+    try {
+      NotificationsListener.initialize(callbackHandle: onData);
+      // register your event handler in the UI logic.
+      NotificationsListener.receivePort?.listen((evt) => onData(evt));
+    } catch (e) {
+      debugPrint("Error in initPlatformState: $e");
+    }
+  }
+
+  void stopListening() async {
+    await NotificationsListener.stopService();
   }
 }

@@ -22,7 +22,9 @@ Future<void> main() async {
   ListenToPort().initListenPort();
 
   await PcService().initializeService();
-  NotificationsListener.stopService();
+
+  OurNotificationListener().stopListening();
+
   runApp(MyApp());
 }
 
@@ -56,7 +58,6 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     globalDeviceListNotifier.addListener(_updateDeviceList);
-    
   }
 
   void _startListening() async {

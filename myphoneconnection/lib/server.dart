@@ -406,22 +406,21 @@ class WebSocketConnection {
         recieveData(message);
       }, onDone: () {
         debugPrint('WebSocket done');
-        isConnected = false;
         connectionPC = ConnectionPC();
+        OurNotificationListener().stopListening();
+        isConnected = false;
       }, onError: (error) {
         debugPrint('WebSocket error: $error');
-        isConnected = false;
         connectionPC = ConnectionPC();
+        OurNotificationListener().stopListening();
+        isConnected = false;
       }, cancelOnError: true);
     } catch (e) {
       debugPrint("Error: $e");
-      isConnected = false;
       connectionPC = ConnectionPC();
+      OurNotificationListener().stopListening();
+      isConnected = false;
     }
-
-    isConnected = true;
-    sendData("createdSocket", "null");
-    debugPrint("WebSocket created");
 
     try {
       nots.setListeners();
@@ -431,11 +430,15 @@ class WebSocketConnection {
     }
 
     try {
-      OurNotificationListener().initPlatformState();
       OurNotificationListener().startListening();
+      OurNotificationListener().initPlatformState();
     } catch (e) {
       debugPrint("Error: $e");
     }
+
+    isConnected = true;
+    sendData("createdSocket", "null");
+    debugPrint("WebSocket created");
   }
 
   bool checkWsConnection() {
@@ -518,6 +521,7 @@ class ConnectionPC {
   Future<void> startConnectionWithPc(
       Device device, ConnectionSave oldSave) async {
     tryingToConnect = true;
+
     if (ws.checkWsConnection()) {
       debugPrint('Already connected');
       tryingToConnect = false;

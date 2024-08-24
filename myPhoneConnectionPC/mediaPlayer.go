@@ -155,8 +155,9 @@ func isPaused(owner string) (bool, error) {
 }
 
 func routineToSyncPosition() {
+	nextSleep := 1
 	for {
-		time.Sleep(1 * time.Second)
+		time.Sleep(time.Duration(nextSleep) * time.Second)
 		if len(currentPlayer) == 0 {
 			continue
 		}
@@ -164,7 +165,7 @@ func routineToSyncPosition() {
 		position, err := getPosition(currentPlayer[len(currentPlayer)-1].currentPlayer)
 		if err != nil {
 			log.Println("Failed to get position:", err)
-			time.Sleep(30 * time.Second)
+			nextSleep = 30
 		}
 		isPausedvar, err := isPaused(currentPlayer[len(currentPlayer)-1].currentPlayer)
 		if err != nil {
@@ -177,6 +178,7 @@ func routineToSyncPosition() {
 		}
 		stringPosition := fmt.Sprintf("%d", position)
 		ws.sendData("setMediaPosition", fmt.Sprintf(stringPosition+"|/|"+isPausedS))
+		nextSleep = 1
 	}
 }
 

@@ -49,7 +49,6 @@ func (ws *Ws) httpWS(recMsg func(s string), key *[]byte) {
 	ws.ws_key = key
 
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		pass := r.URL.Query().Get("pass")
 
 		c, err := upgrader.Upgrade(w, r, nil)
 		ws.socket = c
@@ -59,7 +58,8 @@ func (ws *Ws) httpWS(recMsg func(s string), key *[]byte) {
 			return
 		}
 		defer c.Close()
-
+		
+		pass := r.URL.Query().Get("pass")
 		fmt.Println("pass:", pass)
 		passdec, err := decryptAES(*ws.ws_key, pass)
 		if err != nil {
