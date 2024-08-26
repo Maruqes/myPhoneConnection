@@ -18,7 +18,6 @@ import (
 )
 
 /*
-	IMPORTANTE: DELETION OF IMAGES ON PHONE
 	AINDA TENS DE VER A CONEXÃO COM O PHONE
 */
 
@@ -225,6 +224,7 @@ func main() {
 	ws.registerDataStreams("fullImage", showImageInModal)
 	ws.registerDataStreams("fullVIDEO", showVideoInModal)
 	ws.registerDataStreams("media", mediaAction)
+	ws.registerDataStreams("mediaSetPosition", mediaSetPosition)
 	ws.registerDataStreams("newPhoneNotification", newNotification)
 
 	go serverFunc()

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -40,16 +41,29 @@ type MediaPlayer struct {
 var currentPlayer []MediaPlayer
 var lastPlayer string
 
-func pauseOrPlayMedia() {
+func pauseMedia() {
 	conn, err := dbus.SessionBus()
 	if err != nil {
 		log.Println("Failed to connect to session bus: ", err)
 	}
 
 	object := conn.Object(lastPlayer, "/org/mpris/MediaPlayer2")
-	call := object.Call("org.mpris.MediaPlayer2.Player.PlayPause", 0)
+	call := object.Call("org.mpris.MediaPlayer2.Player.Pause", 0)
 	if call.Err != nil {
-		log.Println("Failed to pause or play media: ", call.Err)
+		log.Println("Failed to pause media: ", call.Err)
+	}
+}
+
+func playMedia() {
+	conn, err := dbus.SessionBus()
+	if err != nil {
+		log.Println("Failed to connect to session bus: ", err)
+	}
+
+	object := conn.Object(lastPlayer, "/org/mpris/MediaPlayer2")
+	call := object.Call("org.mpris.MediaPlayer2.Player.Play", 0)
+	if call.Err != nil {
+		log.Println("Failed to play media: ", call.Err)
 	}
 }
 
@@ -82,13 +96,59 @@ func previousMedia() {
 func mediaAction(media string) {
 
 	if media == "pause" {
-		pauseOrPlayMedia()
+		pauseMedia()
+	} else if media == "play" {
+		playMedia()
 	} else if media == "next" {
 		nextMedia()
 	} else if media == "previous" {
 		previousMedia()
 	} else {
 		log.Println("Unknown media action")
+	}
+}
+
+func getCurrentPosition() int64 {
+	conn, err := dbus.SessionBus()
+	if err != nil {
+		log.Println("Failed to connect to session bus: ", err)
+	}
+
+	object := conn.Object(lastPlayer, "/org/mpris/MediaPlayer2")
+	call := object.Call("org.freedesktop.DBus.Properties.Get", 0, "org.mpris.MediaPlayer2.Player", "Position")
+	if call.Err != nil {
+		log.Println("Failed to get current position: ", call.Err)
+	}
+
+	var position int64
+	err = call.Store(&position)
+	if err != nil {
+		log.Println("Failed to store current position: ", err)
+	}
+
+	return position
+}
+
+func mediaSetPosition(position string) {
+	fmt.Printf("Seeking to position: %s\n", position)
+	conn, err := dbus.SessionBus()
+	if err != nil {
+		log.Println("Failed to connect to session bus: ", err)
+	}
+
+	object := conn.Object(lastPlayer, "/org/mpris/MediaPlayer2")
+	positionInt, err := strconv.Atoi(position)
+	if err != nil {
+		log.Println("Failed to convert position to integer:", err)
+		return
+	}
+	positionInt64 := int64(positionInt)
+
+	dif := positionInt64 - getCurrentPosition()
+
+	call := object.Call("org.mpris.MediaPlayer2.Player.Seek", 0, dif)
+	if call.Err != nil {
+		log.Println("Failed to seek media: ", call.Err)
 	}
 }
 

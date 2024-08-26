@@ -58,7 +58,7 @@ func (ws *Ws) httpWS(recMsg func(s string), key *[]byte) {
 			return
 		}
 		defer c.Close()
-		
+
 		pass := r.URL.Query().Get("pass")
 		fmt.Println("pass:", pass)
 		passdec, err := decryptAES(*ws.ws_key, pass)

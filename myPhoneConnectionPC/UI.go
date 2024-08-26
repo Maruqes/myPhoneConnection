@@ -294,7 +294,7 @@ func addFIRSTImages(s string) {
 	}
 
 	log.Println("Requesting new images")
-	ws.sendData("firstImages", "")
+	// ws.sendData("firstImages", "")
 	syncDataWithWS() //temprarly here
 }
 

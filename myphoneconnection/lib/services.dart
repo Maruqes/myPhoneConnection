@@ -6,7 +6,7 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui';
 
-import 'package:awesome_notifications/awesome_notifications.dart';
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_notification_listener/flutter_notification_listener.dart';
 import 'package:http/http.dart' as http;
@@ -61,6 +61,18 @@ Future<bool> onIosBackground(ServiceInstance service) async {
   return true;
 }
 
+Future<void> _initAudioService() async {
+  customAudioHandler.audioHandler = await AudioService.init(
+    builder: () => customAudioHandler,
+    config: const AudioServiceConfig(
+      androidNotificationChannelId: 'com.example.media',
+      androidNotificationChannelName: 'Media Playback',
+      androidNotificationOngoing: true,
+    ),
+  );
+  debugPrint("Audio Service initialized");
+}
+
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
   ReceivePort port0 = ReceivePort();
@@ -80,6 +92,7 @@ void onStart(ServiceInstance service) async {
         device, ConnectionSave(device, Uint8List(0)));
   });
 
+  _initAudioService();
   publicGallery.initGallery();
   Timer.periodic(const Duration(seconds: 10), (timer) async {
     publicGallery.checkNumberOfImagesOnGallery();
@@ -126,168 +139,6 @@ class PcService {
     );
     // Start the background service when the app is closed
     startBackgroundService();
-  }
-}
-
-class NotificationController {
-  /// Use this method to detect when a new notification or a schedule is created
-  @pragma("vm:entry-point")
-  static Future<void> onNotificationCreatedMethod(
-      ReceivedNotification receivedNotification) async {}
-
-  /// Use this method to detect every time that a new notification is displayed
-  @pragma("vm:entry-point")
-  static Future<void> onNotificationDisplayedMethod(
-      ReceivedNotification receivedNotification) async {}
-
-  /// Use this method to detect if the user dismissed a notification
-  @pragma("vm:entry-point")
-  static Future<void> onDismissActionReceivedMethod(
-      ReceivedAction receivedAction) async {
-    debugPrint("Notification dismissed");
-  }
-
-  /// Use this method to detect when the user taps on a notification or action button
-  @pragma("vm:entry-point")
-  static Future<void> onActionReceivedMethod(
-      ReceivedAction receivedAction) async {
-    debugPrint("Action received");
-    if (receivedAction.buttonKeyPressed == "pause") {
-      connectionPC.ws.sendData("media", "pause");
-    } else if (receivedAction.buttonKeyPressed == "next") {
-      connectionPC.ws.sendData("media", "next");
-    } else if (receivedAction.buttonKeyPressed == "previous") {
-      connectionPC.ws.sendData("media", "previous");
-    }
-  }
-}
-
-class Notify {
-  AwesomeNotifications myAwesomeNots = AwesomeNotifications();
-  int mediaPlayerID = -1;
-
-  void shutAllNots() {
-    myAwesomeNots.cancelAll();
-  }
-
-  Future<void> init() async {
-    await myAwesomeNots.initialize(
-      null, //'resource://drawable/res_app_icon',//
-      [
-        NotificationChannel(
-          channelKey: 'media_player',
-          channelGroupKey: "media_player",
-          channelName: 'No Sound Channel',
-          channelDescription: 'Notification tests as alerts',
-          playSound: false,
-          enableVibration: false,
-          vibrationPattern: null,
-          importance: NotificationImportance.Min,
-          defaultPrivacy: NotificationPrivacy.Public,
-          onlyAlertOnce: true,
-          groupAlertBehavior: GroupAlertBehavior.Summary,
-          channelShowBadge: false,
-        ),
-      ],
-    );
-
-    myAwesomeNots.isNotificationAllowed().then((isAllowed) {
-      if (!isAllowed) {
-        myAwesomeNots.requestPermissionToSendNotifications();
-      }
-    });
-    debugPrint("Notifications initialized");
-  }
-
-  void setListeners() {
-    myAwesomeNots.setListeners(
-        onActionReceivedMethod: NotificationController.onActionReceivedMethod,
-        onNotificationCreatedMethod:
-            NotificationController.onNotificationCreatedMethod,
-        onNotificationDisplayedMethod:
-            NotificationController.onNotificationDisplayedMethod,
-        onDismissActionReceivedMethod:
-            NotificationController.onDismissActionReceivedMethod);
-    debugPrint("Listeners set");
-  }
-
-  Future<String> saveLinkPngInDisk(String link) async {
-    try {
-      var response = await http.get(Uri.parse(link));
-      var bytes = response.bodyBytes;
-      String path = await GalleryFunctions().saveImageInDisk(bytes, "tempIMG");
-      return path;
-    } catch (e) {
-      return "";
-    }
-  }
-
-  //set a new media player notification with buttons
-  Future<void> notifyMediaPlayer(String title, String body, String link,
-      int length, int position, bool paused) async {
-    double positionInt = 0;
-    if (length <= 0 || position < 0) {
-    } else {
-      positionInt = (position / length) * 100;
-    }
-
-    if (position > length) {
-      position = length;
-    }
-
-    String path = await saveLinkPngInDisk(link);
-
-    if (path != "") {
-      path = "file://$path";
-    }
-
-    if (mediaPlayerID == -1) {
-      mediaPlayerID = Random().nextInt(100);
-    }
-
-    await myAwesomeNots.createNotification(
-      content: NotificationContent(
-        id: mediaPlayerID,
-        channelKey: 'media_player',
-        category: NotificationCategory.Transport,
-        title: title,
-        body: body,
-        duration: Duration(microseconds: length),
-        progress: positionInt,
-        playbackSpeed: 1.0,
-        playState: paused
-            ? NotificationPlayState.paused
-            : NotificationPlayState.playing,
-        summary: "Now Playing",
-        notificationLayout: NotificationLayout.MediaPlayer,
-        largeIcon: path,
-        autoDismissible: false,
-        showWhen: false,
-      ),
-      actionButtons: [
-        NotificationActionButton(
-            key: 'pause',
-            label: 'Pause',
-            icon: 'resource://drawable/res_pause',
-            autoDismissible: false,
-            showInCompactView: true,
-            actionType: ActionType.SilentAction),
-        NotificationActionButton(
-            key: 'next',
-            label: 'Next',
-            icon: 'resource://drawable/res_next',
-            autoDismissible: false,
-            showInCompactView: true,
-            actionType: ActionType.SilentAction),
-        NotificationActionButton(
-            key: 'previous',
-            label: 'Previous',
-            icon: 'resource://drawable/res_previous',
-            autoDismissible: false,
-            showInCompactView: true,
-            actionType: ActionType.SilentAction),
-      ],
-    );
   }
 }
 

@@ -342,6 +342,13 @@ class WebSocketConnection {
     dataStreams.add(DataStream(identifier, function));
   }
 
+  void resetConnection() {
+    connectionPC = ConnectionPC();
+    OurNotificationListener().stopListening();
+    isConnected = false;
+    customAudioHandler.stop();
+  }
+
   Function getFunction(String identifier) {
     for (var dataStream in dataStreams) {
       if (dataStream.indetifier == identifier) {
@@ -406,14 +413,10 @@ class WebSocketConnection {
         recieveData(message);
       }, onDone: () {
         debugPrint('WebSocket done');
-        connectionPC = ConnectionPC();
-        OurNotificationListener().stopListening();
-        isConnected = false;
+        resetConnection();
       }, onError: (error) {
         debugPrint('WebSocket error: $error');
-        connectionPC = ConnectionPC();
-        OurNotificationListener().stopListening();
-        isConnected = false;
+        resetConnection();
       }, cancelOnError: true);
     } catch (e) {
       debugPrint("Error: $e");
@@ -422,12 +425,12 @@ class WebSocketConnection {
       isConnected = false;
     }
 
-    try {
-      nots.setListeners();
-      nots.init();
-    } catch (e) {
-      debugPrint("Error: $e");
-    }
+    // try {
+    //   nots.setListeners();
+    //   nots.init();
+    // } catch (e) {
+    //   debugPrint("Error: $e");
+    // }
 
     try {
       OurNotificationListener().startListening();

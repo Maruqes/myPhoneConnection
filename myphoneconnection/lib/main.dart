@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter_notification_listener/flutter_notification_listener.dart';
+import 'package:myphoneconnection/mediaPlayer.dart';
 import 'package:myphoneconnection/server.dart';
 import 'package:myphoneconnection/services.dart';
 import 'package:flutter/material.dart';
+import 'package:audio_service/audio_service.dart';
 
 /*
 todolistdavida
@@ -14,7 +16,7 @@ testar o caralho do protocolo duma maneira incrivel de forma a ters a puta da ce
 ValueNotifier<List<Device>> globalDeviceListNotifier =
     ValueNotifier<List<Device>>([]);
 
-Notify nots = Notify();
+CustomAudioHandler customAudioHandler = CustomAudioHandler();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,6 +57,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   bool started = false;
+
   void initState() {
     super.initState();
     globalDeviceListNotifier.addListener(_updateDeviceList);
