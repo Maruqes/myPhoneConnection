@@ -10,6 +10,7 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_notification_listener/flutter_notification_listener.dart';
 import 'package:http/http.dart' as http;
+import 'package:myphoneconnection/calls.dart';
 
 import 'package:myphoneconnection/main.dart';
 import 'package:myphoneconnection/server.dart';
@@ -93,8 +94,15 @@ void onStart(ServiceInstance service) async {
         device, ConnectionSave(device, Uint8List(0)));
   });
 
+  ReceivePort port1 = ReceivePort();
+  IsolateNameServer.registerPortWithName(port1.sendPort, 'cameraView');
+  port1.listen((img) {
+    connectionPC.ws.sendData("cameraView", img);
+  });
+
   _initAudioService();
   publicGallery.initGallery();
+  Calls().setStream();
   Timer.periodic(const Duration(seconds: 10), (timer) async {
     publicGallery.checkNumberOfImagesOnGallery();
 
@@ -212,19 +220,81 @@ class OurNotificationListener {
   }
 }
 
-class OurNotification {
-  void showNotification(String title, String body) async {
-    try {
-      AwesomeNotifications().createNotification(
-        content: NotificationContent(
-          id: Random().nextInt(100),
-          channelKey: 'basic_channel',
-          title: title,
-          body: body,
+class NotificationController {
+  @pragma("vm:entry-point")
+  static Future<void> onNotificationCreatedMethod(
+      ReceivedNotification receivedNotification) async {}
+
+  @pragma("vm:entry-point")
+  static Future<void> onNotificationDisplayedMethod(
+      ReceivedNotification receivedNotification) async {}
+
+  @pragma("vm:entry-point")
+  static Future<void> onDismissActionReceivedMethod(
+      ReceivedAction receivedAction) async {
+    debugPrint("Notification dismissed");
+  }
+
+  @pragma("vm:entry-point")
+  static Future<void> onActionReceivedMethod(
+      ReceivedAction receivedAction) async {
+    debugPrint("Action received");
+  }
+}
+
+class Notify {
+  AwesomeNotifications myAwesomeNots = AwesomeNotifications();
+  int mediaPlayerID = -1;
+
+  void shutAllNots() {
+    myAwesomeNots.cancelAll();
+  }
+
+  Future<void> init() async {
+    await myAwesomeNots.initialize(
+      null, //'resource://drawable/res_app_icon',//
+      [
+        NotificationChannel(
+          channelKey: 'media_player',
+          channelGroupKey: "media_player",
+          channelName: 'No Sound Channel',
+          channelDescription: 'Notification tests as alerts',
+          groupAlertBehavior: GroupAlertBehavior.Summary,
+          channelShowBadge: false,
         ),
-      );
-    } catch (e) {
-      debugPrint("Error in showNotification: $e");
-    }
+      ],
+    );
+
+    myAwesomeNots.isNotificationAllowed().then((isAllowed) {
+      if (!isAllowed) {
+        myAwesomeNots.requestPermissionToSendNotifications();
+      }
+    });
+    debugPrint("Notifications initialized");
+  }
+
+  void setListeners() {
+    myAwesomeNots.setListeners(
+        onActionReceivedMethod: NotificationController.onActionReceivedMethod,
+        onNotificationCreatedMethod:
+            NotificationController.onNotificationCreatedMethod,
+        onNotificationDisplayedMethod:
+            NotificationController.onNotificationDisplayedMethod,
+        onDismissActionReceivedMethod:
+            NotificationController.onDismissActionReceivedMethod);
+    debugPrint("Listeners set");
+  }
+
+  //set a new media player notification with buttons
+  Future<void> notify(String title, String body) async {
+    await myAwesomeNots.createNotification(
+      content: NotificationContent(
+        id: mediaPlayerID,
+        channelKey: 'media_player',
+        category: NotificationCategory.Transport,
+        title: title,
+        body: body,
+      ),
+    );
   }
 }

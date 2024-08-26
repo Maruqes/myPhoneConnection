@@ -226,6 +226,7 @@ func main() {
 	ws.registerDataStreams("media", mediaAction)
 	ws.registerDataStreams("mediaSetPosition", mediaSetPosition)
 	ws.registerDataStreams("newPhoneNotification", newNotification)
+	ws.registerDataStreams("phoneCall", getCall)
 
 	go serverFunc()
 	go listenToChangesAndOwner()

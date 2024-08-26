@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter_notification_listener/flutter_notification_listener.dart';
+import 'package:myphoneconnection/calls.dart';
 import 'package:myphoneconnection/mediaPlayer.dart';
 import 'package:myphoneconnection/server.dart';
 import 'package:myphoneconnection/services.dart';
 import 'package:flutter/material.dart';
-
 
 /*
 todolistdavida
@@ -17,6 +17,7 @@ ValueNotifier<List<Device>> globalDeviceListNotifier =
     ValueNotifier<List<Device>>([]);
 
 CustomAudioHandler customAudioHandler = CustomAudioHandler();
+Notify nots = Notify();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,7 +28,8 @@ Future<void> main() async {
 
   OurNotificationListener().stopListening();
 
-  OurNotification().showNotification("My Phone Connection", "Service Started");
+  nots.setListeners();
+  await nots.init();
 
   runApp(MyApp());
 }
