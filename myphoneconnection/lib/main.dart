@@ -5,7 +5,7 @@ import 'package:myphoneconnection/mediaPlayer.dart';
 import 'package:myphoneconnection/server.dart';
 import 'package:myphoneconnection/services.dart';
 import 'package:flutter/material.dart';
-import 'package:audio_service/audio_service.dart';
+
 
 /*
 todolistdavida
@@ -26,6 +26,8 @@ Future<void> main() async {
   await PcService().initializeService();
 
   OurNotificationListener().stopListening();
+
+  OurNotification().showNotification("My Phone Connection", "Service Started");
 
   runApp(MyApp());
 }

@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:myphoneconnection/galleryFunctions.dart';
 import 'package:device_apps/device_apps.dart';
+import 'package:awesome_notifications/awesome_notifications.dart';
 
 class ListenToPort {
   List<Device> devicesTempToAdd = [];
@@ -208,5 +209,22 @@ class OurNotificationListener {
 
   void stopListening() async {
     await NotificationsListener.stopService();
+  }
+}
+
+class OurNotification {
+  void showNotification(String title, String body) async {
+    try {
+      AwesomeNotifications().createNotification(
+        content: NotificationContent(
+          id: Random().nextInt(100),
+          channelKey: 'basic_channel',
+          title: title,
+          body: body,
+        ),
+      );
+    } catch (e) {
+      debugPrint("Error in showNotification: $e");
+    }
   }
 }
