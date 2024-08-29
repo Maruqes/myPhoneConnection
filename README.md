@@ -49,3 +49,4 @@ You can also just run the executable if it is already launched
 - Something to show if connected and who
 - Need a icon for App and change notification labels
 - More testing
+- Make the installer better
