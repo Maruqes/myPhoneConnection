@@ -33,6 +33,7 @@ You can also just run the executable if it is already launched
 - Clipboard text mirror (from PC to android)
 - Clipboard Screenshots mirror (from PC to android)
 - Notification viewer (from PC see android notifications)
+- Call warning (shows a notification and lowers volume)
 - Full pairing from both devices, once connected, should be paired alone if in the same network
 - Full encryption from p2p in the pairing protocol
 - Should both run in as a background service
@@ -41,5 +42,10 @@ You can also just run the executable if it is already launched
 ![alt text](https://i.postimg.cc/nr0931gc/logseq-my-Phone-Connection-Protocol.png)
 
 ## Known bugs
-- Media player is buggy on some devices
 - Devices does not show on the app after some time
+- Media notification sometimes does not show all buttons
+
+## TODO
+- Something to show if connected and who
+- Need a icon for App and change notification labels
+- More testing

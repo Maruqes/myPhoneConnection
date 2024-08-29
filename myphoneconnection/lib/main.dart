@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter_notification_listener/flutter_notification_listener.dart';
-import 'package:myphoneconnection/calls.dart';
 import 'package:myphoneconnection/mediaPlayer.dart';
 import 'package:myphoneconnection/server.dart';
 import 'package:myphoneconnection/services.dart';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 /*
 todolistdavida
@@ -19,8 +19,37 @@ ValueNotifier<List<Device>> globalDeviceListNotifier =
 CustomAudioHandler customAudioHandler = CustomAudioHandler();
 Notify nots = Notify();
 
+Future<void> requestPermission() async {
+  var status = await Permission.notification.status;
+  if (status.isDenied) {
+    status = await Permission.notification.request();
+  }
+
+  status = await Permission.contacts.status;
+  if (status.isDenied) {
+    status = await Permission.contacts.request();
+  }
+
+  status = await Permission.photos.status;
+  if (status.isDenied) {
+    status = await Permission.photos.request();
+  }
+
+  status = await Permission.videos.status;
+  if (status.isDenied) {
+    status = await Permission.videos.request();
+  }
+
+  status = await Permission.phone.status;
+  if (status.isDenied) {
+    status = await Permission.phone.request();
+  }
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await requestPermission();
 
   ListenToPort().initListenPort();
 
@@ -31,7 +60,7 @@ Future<void> main() async {
   nots.setListeners();
   await nots.init();
 
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -67,33 +96,9 @@ class _MyHomePageState extends State<MyHomePage> {
     globalDeviceListNotifier.addListener(_updateDeviceList);
   }
 
-  void _startListening() async {
-    debugPrint("start listening");
-    var hasPermission = await NotificationsListener.hasPermission;
-    if (hasPermission == null || !hasPermission) {
-      debugPrint("no permission, so open settings");
-      NotificationsListener.openPermissionSettings();
-      return;
-    }
-
-    var isR = await NotificationsListener.isRunning;
-
-    if (isR == null || !isR) {
-      await NotificationsListener.startService();
-    }
-
-    setState(() => started = true);
-  }
-
   @pragma('vm:entry-point')
   static void _onData(NotificationEvent event) {
     debugPrint(event.toString());
-  }
-
-  Future<void> _initPlatformState() async {
-    NotificationsListener.initialize(callbackHandle: _onData);
-    // register you event handler in the ui logic.
-    NotificationsListener.receivePort?.listen((evt) => _onData(evt));
   }
 
   @override

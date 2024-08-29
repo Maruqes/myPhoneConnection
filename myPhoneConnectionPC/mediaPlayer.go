@@ -218,16 +218,19 @@ func routineToSyncPosition() {
 	nextSleep := 1
 	for {
 		time.Sleep(time.Duration(nextSleep) * time.Second)
+		var playerToSync string
 		if len(currentPlayer) == 0 {
 			continue
+		} else {
+			playerToSync = currentPlayer[len(currentPlayer)-1].currentPlayer
 		}
 
-		position, err := getPosition(currentPlayer[len(currentPlayer)-1].currentPlayer)
+		position, err := getPosition(playerToSync)
 		if err != nil {
 			log.Println("Failed to get position:", err)
 			nextSleep = 30
 		}
-		isPausedvar, err := isPaused(currentPlayer[len(currentPlayer)-1].currentPlayer)
+		isPausedvar, err := isPaused(playerToSync)
 		if err != nil {
 			log.Println("Failed to get isPaused:", err)
 		}

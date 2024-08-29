@@ -52,6 +52,7 @@ class GalleryFunctions {
   int numberOfImages = 750;
   int imageWidth = 150;
   int imageQuality = 30;
+  bool firstImagesSent = false;
 
   Future<String> saveImageInDisk(Uint8List bytes, String path) async {
     final Directory tempDir = await getTemporaryDirectory();
@@ -177,6 +178,9 @@ class GalleryFunctions {
 
   Future<void> sendFirstImages(String nullS) async {
     try {
+      if (firstImagesSent) return;
+      firstImagesSent = true;
+      
       debugPrint("SENDING FIRST IMAGES");
 
       int numberOfImagesFIRST = 100;

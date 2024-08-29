@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strconv"
 	"strings"
@@ -287,14 +288,14 @@ func addNewImages() {
 	ws.sendData("askImages", "")
 }
 
-func addFIRSTImages(s string) {
+func addFIRSTImages() {
 	if !ws.isConnectionAlive() {
 		log.Println("WebSocket connection is not alive")
 		return
 	}
 
 	log.Println("Requesting new images")
-	// ws.sendData("firstImages", "")
+	ws.sendData("firstImages", "")
 	syncDataWithWS() //temprarly here
 }
 
@@ -337,7 +338,8 @@ func createUI() {
 
 	footer := container.New(layout.NewHBoxLayout(), layout.NewSpacer(), imgNumberFooter, layout.NewSpacer(), maxImgNumberFooter, layout.NewSpacer())
 
-	buttonTEST := widget.NewButton("TEST", func() {
+	buttonTEST := widget.NewButton("Start Getting Images", func() {
+		addFIRSTImages()
 	})
 
 	content := container.NewVBox(
@@ -370,12 +372,36 @@ func createUI() {
 	mainWindow.ShowAndRun()
 }
 
+func restart() error {
+	// Get the current executable
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+
+	// Get the command to restart the application
+	cmd := exec.Command(exe, os.Args[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	// Start the new process
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	// Exit the current process
+	os.Exit(0)
+	return nil
+}
+
 func onReady() {
 	systray.SetIcon(iconData)
 	systray.SetTitle("myPhoneConnection")
 	systray.SetTooltip("myPhoneConnection Running in Background")
 
 	mShow := systray.AddMenuItem("Show", "Show the application window")
+	mRestart := systray.AddMenuItem("Restart", "Restart the application")
 	mQuit := systray.AddMenuItem("Quit", "Quit the application")
 
 	go func() {
@@ -389,6 +415,8 @@ func onReady() {
 			case <-mQuit.ClickedCh:
 				mainApp.Quit()
 				os.Exit(0)
+			case <-mRestart.ClickedCh:
+				restart()
 			}
 		}
 	}()

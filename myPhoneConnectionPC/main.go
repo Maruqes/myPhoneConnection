@@ -207,11 +207,19 @@ func serverFunc() {
 	}
 
 	log.Printf("Server listening on port %s", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	err := http.ListenAndServe(":"+port, nil)
+	for err.Error() == "listen tcp :8080: bind: address already in use" {
+		http.ListenAndServe(":"+port, nil)
+	}
+	log.Fatal(err)
 }
 
 func printit(s string) {
 	log.Println(s)
+}
+
+func createdSocket(s string) {
+	log.Println("Socket created")
 }
 
 func main() {
@@ -219,7 +227,7 @@ func main() {
 	ws.registerDataStreams("nextPass", nextPassSave)
 	ws.registerDataStreams("imagetest", addCacheImagesFalse)
 	ws.registerDataStreams("imageFirst", addCacheImagesFalse)
-	ws.registerDataStreams("createdSocket", addFIRSTImages)
+	ws.registerDataStreams("createdSocket", createdSocket)
 	ws.registerDataStreams("updateGallery", addCacheImagesFirst)
 	ws.registerDataStreams("fullImage", showImageInModal)
 	ws.registerDataStreams("fullVIDEO", showVideoInModal)

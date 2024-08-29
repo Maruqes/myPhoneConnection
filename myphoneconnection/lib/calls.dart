@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/widgets.dart';
 import 'package:myphoneconnection/server.dart';
 import 'package:phone_state/phone_state.dart';
 import 'package:contacts_service/contacts_service.dart';
