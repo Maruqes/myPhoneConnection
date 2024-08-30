@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter_notification_listener/flutter_notification_listener.dart';
+import 'package:myphoneconnection/backgroundService.dart';
 import 'package:myphoneconnection/mediaPlayer.dart';
 import 'package:myphoneconnection/server.dart';
 import 'package:myphoneconnection/services.dart';
@@ -156,7 +157,7 @@ class _MyHomePageState extends State<MyHomePage> {
 class DeviceListWidget extends StatelessWidget {
   final List<Device> devices;
 
-  DeviceListWidget({Key? key, required this.devices}) : super(key: key);
+  const DeviceListWidget({super.key, required this.devices});
 
   void tryConnection(Device device) {
     String stringToSend =

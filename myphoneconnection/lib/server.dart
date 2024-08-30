@@ -347,6 +347,7 @@ class WebSocketConnection {
     OurNotificationListener().stopListening();
     isConnected = false;
     customAudioHandler.stop();
+    nots.setBackgroundNotification("My Phone Connection", "Not connected");
   }
 
   Function getFunction(String identifier) {
@@ -544,6 +545,8 @@ class ConnectionPC {
     debugPrint('Connected to ${device.ip}');
     tryingToConnect =
         false; //dont worry because we have isConnected //i separated the 2 in isConected and tryingToConnect
+    nots.setBackgroundNotification(
+        "My Phone Connection", "Connected to ${device.hostname}");
   }
 
   Future<void> startProtocol(port) async {
