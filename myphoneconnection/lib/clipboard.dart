@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:super_clipboard/super_clipboard.dart';
-import 'package:flutter/services.dart';
 
 class ClipboardUniversal {
   void copy(String data) async {

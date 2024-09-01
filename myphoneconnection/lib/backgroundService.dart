@@ -31,8 +31,7 @@ Future<void> _initAudioService() async {
   debugPrint("Audio Service initialized");
 }
 
-@pragma('vm:entry-point')
-void onStart(ServiceInstance service) async {
+void setPorts() {
   ReceivePort port0 = ReceivePort();
   IsolateNameServer.registerPortWithName(port0.sendPort, 'callService');
   port0.listen((deviceString) {
@@ -50,11 +49,38 @@ void onStart(ServiceInstance service) async {
         device, ConnectionSave(device, Uint8List(0)));
   });
 
-  ReceivePort port1 = ReceivePort();
-  IsolateNameServer.registerPortWithName(port1.sendPort, 'cameraView');
-  port1.listen((img) {
-    connectionPC.ws.sendData("cameraView", img);
+  ReceivePort leftPowerpoint = ReceivePort();
+  IsolateNameServer.registerPortWithName(
+      leftPowerpoint.sendPort, 'leftPowerpoint');
+  leftPowerpoint.listen((_) {
+    connectionPC.ws.sendData("leftPowerpoint", "");
+    debugPrint("leftPowerpoint");
   });
+
+  ReceivePort rightPowerpoint = ReceivePort();
+  IsolateNameServer.registerPortWithName(
+      rightPowerpoint.sendPort, 'rightPowerpoint');
+  rightPowerpoint.listen((_) {
+    connectionPC.ws.sendData("rightPowerpoint", "");
+    debugPrint("rightPowerpoint");
+  });
+
+  ReceivePort mouseMoveEvent = ReceivePort();
+  IsolateNameServer.registerPortWithName(mouseMoveEvent.sendPort, 'mouseMoveEvent');
+  mouseMoveEvent.listen((data) {
+    connectionPC.ws.sendData("mouseMoveEvent", data);
+  });
+
+  ReceivePort mouseEvent = ReceivePort();
+  IsolateNameServer.registerPortWithName(mouseEvent.sendPort, 'mouseEvent');
+  mouseEvent.listen((data) {
+    connectionPC.ws.sendData("mouseEvent", data);
+  });
+}
+
+@pragma('vm:entry-point')
+void onStart(ServiceInstance service) async {
+  setPorts();
 
   _initAudioService();
   publicGallery.initGallery();

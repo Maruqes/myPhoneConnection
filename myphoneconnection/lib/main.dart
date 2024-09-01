@@ -75,6 +75,8 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
+      darkTheme: ThemeData.dark(),
+      themeMode: ThemeMode.system,
       home: const MyHomePage(title: 'My Phone Connection'),
     );
   }
@@ -112,12 +114,59 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {});
   }
 
+  final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: scaffoldKey,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: () => scaffoldKey.currentState!.openDrawer(),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => SettingsPage()),
+              );
+            },
+          ),
+        ],
+        automaticallyImplyLeading: false,
+      ),
+      drawer: Drawer(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center, // Add this line
+          children: [
+            ElevatedButton(onPressed: () {}, child: const Text("Main Page")),
+            ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const PowerpointController(),
+                    ),
+                  );
+                },
+                child: const Text("Powerpoint Controller")),
+            ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MouseController(),
+                    ),
+                  );
+                },
+                child: const Text("Mouse Controller")),
+          ],
+        ),
       ),
       body: Wrap(
         children: [
@@ -125,12 +174,6 @@ class _MyHomePageState extends State<MyHomePage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                ElevatedButton(
-                    onPressed: () => {
-                          //update UI
-                          setState(() {}),
-                        },
-                    child: const Text("Update Device List")),
                 ElevatedButton(
                     onPressed: () {
                       PairedDevices().clearAllConnectionSaves();
@@ -149,6 +192,22 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
           // Add InputWidget here
         ],
+      ),
+    );
+  }
+}
+
+class SettingsPage extends StatelessWidget {
+  const SettingsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Settings"),
+      ),
+      body: Column(
+        children: [],
       ),
     );
   }
@@ -178,6 +237,326 @@ class DeviceListWidget extends StatelessWidget {
               ),
             )
             .toList(),
+      ),
+    );
+  }
+}
+
+class PowerpointController extends StatefulWidget {
+  const PowerpointController({super.key});
+
+  @override
+  State<PowerpointController> createState() => _PowerpointControllerState();
+}
+
+class _PowerpointControllerState extends State<PowerpointController> {
+  final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  Widget build(BuildContext context) {
+    double height = MediaQuery.sizeOf(context).height;
+
+    return Scaffold(
+        key: scaffoldKey,
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+          title: const Text("Powerpoint Controller"),
+          leading: IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => scaffoldKey.currentState!.openDrawer(),
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => SettingsPage()),
+                );
+              },
+            ),
+          ],
+          automaticallyImplyLeading: false,
+        ),
+        drawer: Drawer(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center, // Add this line
+            children: [
+              ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const MyHomePage(title: "My Phone Connection"),
+                      ),
+                    );
+                  },
+                  child: const Text("Main Page")),
+              ElevatedButton(
+                  onPressed: () {}, child: const Text("Powerpoint Controller")),
+              ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const MouseController(),
+                      ),
+                    );
+                  },
+                  child: const Text("Mouse Controller")),
+            ],
+          ),
+        ),
+        body: Wrap(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      IsolateNameServer.lookupPortByName('leftPowerpoint')
+                          ?.send("");
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.all(
+                          16.0), // Adjust the padding as needed
+                      textStyle: const TextStyle(
+                          fontSize: 20.0), // Adjust the font size as needed
+                      minimumSize: Size(double.infinity,
+                          height), // Set the minimum height of the button
+                    ),
+                    child: const Text('Left'),
+                  ),
+                ),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      IsolateNameServer.lookupPortByName('rightPowerpoint')
+                          ?.send("");
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.all(
+                          16.0), // Adjust the padding as needed
+                      textStyle: const TextStyle(
+                          fontSize: 20.0), // Adjust the font size as needed
+                      minimumSize: Size(double.infinity,
+                          height), // Set the minimum height of the button
+                    ),
+                    child: const Text('Right'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ));
+  }
+}
+
+class MouseController extends StatefulWidget {
+  const MouseController({super.key});
+
+  @override
+  State<MouseController> createState() => _MouseController();
+}
+
+class _MouseController extends State<MouseController> {
+  final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      key: scaffoldKey,
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: const Text("Powerpoint Controller"),
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: () => scaffoldKey.currentState!.openDrawer(),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => SettingsPage()),
+              );
+            },
+          ),
+        ],
+        automaticallyImplyLeading: false,
+      ),
+      drawer: Drawer(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center, // Add this line
+          children: [
+            ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          const MyHomePage(title: "My Phone Connection"),
+                    ),
+                  );
+                },
+                child: const Text("Main Page")),
+            ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const PowerpointController(),
+                    ),
+                  );
+                },
+                child: const Text("Powerpoint Controller")),
+            ElevatedButton(
+                onPressed: () {}, child: const Text("Mouse Controller")),
+          ],
+        ),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: Center(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapUp: (details) {
+                  IsolateNameServer.lookupPortByName('mouseEvent')
+                      ?.send("left_click");
+                },
+                onDoubleTap: () {
+                  IsolateNameServer.lookupPortByName('mouseEvent')
+                      ?.send("right_click");
+                },
+                onPanUpdate: (details) {
+                  int dx = details.delta.dx.round();
+                  int dy = details.delta.dy.round();
+                  String sendString = "$dx|$dy";
+
+                  IsolateNameServer.lookupPortByName('mouseMoveEvent')
+                      ?.send(sendString);
+                },
+                child: Container(
+                  color: const Color.fromARGB(255, 31, 31, 31),
+                  child: const Stack(
+                    children: [
+                      Positioned(
+                        top: 10,
+                        left: 10,
+                        child: Opacity(
+                          opacity: 0.50,
+                          child: Icon(
+                            color: Color.fromARGB(255, 65, 227, 168),
+                            Icons.rounded_corner,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 10,
+                        right: 10,
+                        child: Opacity(
+                          opacity: 0.50,
+                          child: Icon(
+                            color: Color.fromARGB(255, 65, 227, 168),
+                            Icons.rounded_corner,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 10,
+                        left: 10,
+                        child: Opacity(
+                          opacity: 0.50,
+                          child: Icon(
+                            color: Color.fromARGB(255, 65, 227, 168),
+                            Icons.rounded_corner,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 10,
+                        right: 10,
+                        child: Opacity(
+                          opacity: 0.50,
+                          child: Icon(
+                            color: Color.fromARGB(255, 65, 227, 168),
+                            Icons.rounded_corner,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Opacity(
+                              opacity: 0.50,
+                              child: Icon(
+                                color: Color.fromARGB(255, 65, 227, 168),
+                                Icons.touch_app,
+                                size: 50,
+                              ),
+                            ),
+                            Opacity(
+                              opacity: 0.50,
+                              child: Text(
+                                'TOUCHPAD!',
+                                style: TextStyle(
+                                  fontSize: 30,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color.fromARGB(255, 65, 227, 168),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Container(
+            color: Colors.black,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    IsolateNameServer.lookupPortByName('mouseEvent')
+                        ?.send("left_click");
+                  },
+                  style: ButtonStyle(
+                    backgroundColor: WidgetStateProperty.all<Color>(
+                      const Color.fromARGB(255, 59, 179, 135),
+                    ),
+                  ),
+                  child: const Text('Left Click'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    IsolateNameServer.lookupPortByName('mouseEvent')
+                        ?.send("right_click");
+                  },
+                  style: ButtonStyle(
+                    backgroundColor: WidgetStateProperty.all<Color>(
+                      const Color.fromARGB(255, 59, 179, 135),
+                    ),
+                  ),
+                  child: const Text('Right Click'),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

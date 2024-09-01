@@ -22,6 +22,7 @@ import (
 */
 
 var ws Ws
+var extras Extras
 
 type SysInfo struct {
 	Hostname string `bson:"hostname"`
@@ -235,6 +236,10 @@ func main() {
 	ws.registerDataStreams("mediaSetPosition", mediaSetPosition)
 	ws.registerDataStreams("newPhoneNotification", newNotification)
 	ws.registerDataStreams("phoneCall", getCall)
+	ws.registerDataStreams("leftPowerpoint", extras.leftPowerpoint)
+	ws.registerDataStreams("mouseMoveEvent", extras.mouseMoveEvent)
+	ws.registerDataStreams("mouseEvent", extras.mouseEvent)
+	extras.initKeys()
 
 	go serverFunc()
 	go listenToChangesAndOwner()
