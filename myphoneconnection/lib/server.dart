@@ -384,6 +384,10 @@ class WebSocketConnection {
     }
   }
 
+  void testif(String s) {
+    IsolateNameServer.lookupPortByName('setNewProcesses')?.send(s);
+  }
+
   void createWebSocket(Uint8List key_, Device device) async {
     key = key_;
 
@@ -398,6 +402,8 @@ class WebSocketConnection {
     //     "notAction", OurNotificationListener().actionOnNotification);
     registerDataStream("clipboard", ClipboardUniversal().copy);
     registerDataStream("clipboardIMG", ClipboardUniversal().copyIMG);
+    registerDataStream("clipboardIMG", ClipboardUniversal().copyIMG);
+    registerDataStream("setNewProcesses", testif);
 
     final passForWS = encryptAES(key, "ableToConnect");
 

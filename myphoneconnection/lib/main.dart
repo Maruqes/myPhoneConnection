@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'dart:ui';
 import 'package:flutter_notification_listener/flutter_notification_listener.dart';
 import 'package:myphoneconnection/backgroundService.dart';
@@ -19,6 +20,9 @@ ValueNotifier<List<Device>> globalDeviceListNotifier =
 
 CustomAudioHandler customAudioHandler = CustomAudioHandler();
 Notify nots = Notify();
+
+ValueNotifier<List<Process>> globalProcessListNotifier =
+    ValueNotifier<List<Process>>([]);
 
 Future<void> requestPermission() async {
   var status = await Permission.notification.status;
@@ -62,6 +66,81 @@ Future<void> main() async {
   await nots.init();
 
   runApp(const MyApp());
+}
+
+Drawer getMainDrawer(BuildContext context) {
+  return Drawer(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center, // Add this line
+      children: [
+        ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      const MyHomePage(title: "My Phone Connection"),
+                ),
+              );
+            },
+            child: const Text("Main Page")),
+        ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const PowerpointController(),
+                ),
+              );
+            },
+            child: const Text("Powerpoint Controller")),
+        ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const MouseController(),
+                ),
+              );
+            },
+            child: const Text("Mouse Controller")),
+        ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProcessController(),
+                ),
+              );
+            },
+            child: const Text("Process Controller")),
+      ],
+    ),
+  );
+}
+
+AppBar getMainAppBar(
+    BuildContext context, String title, GlobalKey<ScaffoldState> scaffoldKey) {
+  return AppBar(
+    backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+    title: Text(title),
+    leading: IconButton(
+      icon: const Icon(Icons.menu),
+      onPressed: () => scaffoldKey.currentState!.openDrawer(),
+    ),
+    actions: [
+      IconButton(
+        icon: const Icon(Icons.settings),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const SettingsPage()),
+          );
+        },
+      ),
+    ],
+    automaticallyImplyLeading: false,
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -120,54 +199,8 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       key: scaffoldKey,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () => scaffoldKey.currentState!.openDrawer(),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => SettingsPage()),
-              );
-            },
-          ),
-        ],
-        automaticallyImplyLeading: false,
-      ),
-      drawer: Drawer(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center, // Add this line
-          children: [
-            ElevatedButton(onPressed: () {}, child: const Text("Main Page")),
-            ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const PowerpointController(),
-                    ),
-                  );
-                },
-                child: const Text("Powerpoint Controller")),
-            ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const MouseController(),
-                    ),
-                  );
-                },
-                child: const Text("Mouse Controller")),
-          ],
-        ),
-      ),
+      appBar: getMainAppBar(context, widget.title, scaffoldKey),
+      drawer: getMainDrawer(context),
       body: Wrap(
         children: [
           Center(
@@ -258,56 +291,8 @@ class _PowerpointControllerState extends State<PowerpointController> {
 
     return Scaffold(
         key: scaffoldKey,
-        appBar: AppBar(
-          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-          title: const Text("Powerpoint Controller"),
-          leading: IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => scaffoldKey.currentState!.openDrawer(),
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.settings),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => SettingsPage()),
-                );
-              },
-            ),
-          ],
-          automaticallyImplyLeading: false,
-        ),
-        drawer: Drawer(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center, // Add this line
-            children: [
-              ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            const MyHomePage(title: "My Phone Connection"),
-                      ),
-                    );
-                  },
-                  child: const Text("Main Page")),
-              ElevatedButton(
-                  onPressed: () {}, child: const Text("Powerpoint Controller")),
-              ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const MouseController(),
-                      ),
-                    );
-                  },
-                  child: const Text("Mouse Controller")),
-            ],
-          ),
-        ),
+        appBar: getMainAppBar(context, "Powerpoint Controller", scaffoldKey),
+        drawer: getMainDrawer(context),
         body: Wrap(
           children: [
             Row(
@@ -368,56 +353,8 @@ class _MouseController extends State<MouseController> {
   Widget build(BuildContext context) {
     return Scaffold(
       key: scaffoldKey,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text("Powerpoint Controller"),
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () => scaffoldKey.currentState!.openDrawer(),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => SettingsPage()),
-              );
-            },
-          ),
-        ],
-        automaticallyImplyLeading: false,
-      ),
-      drawer: Drawer(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center, // Add this line
-          children: [
-            ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          const MyHomePage(title: "My Phone Connection"),
-                    ),
-                  );
-                },
-                child: const Text("Main Page")),
-            ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const PowerpointController(),
-                    ),
-                  );
-                },
-                child: const Text("Powerpoint Controller")),
-            ElevatedButton(
-                onPressed: () {}, child: const Text("Mouse Controller")),
-          ],
-        ),
-      ),
+      appBar: getMainAppBar(context, "Mouse Controller", scaffoldKey),
+      drawer: getMainDrawer(context),
       body: Column(
         children: [
           Expanded(
@@ -440,86 +377,83 @@ class _MouseController extends State<MouseController> {
                   IsolateNameServer.lookupPortByName('mouseMoveEvent')
                       ?.send(sendString);
                 },
-                child: Container(
-                  color: const Color.fromARGB(255, 31, 31, 31),
-                  child: const Stack(
-                    children: [
-                      Positioned(
-                        top: 10,
-                        left: 10,
-                        child: Opacity(
-                          opacity: 0.50,
-                          child: Icon(
-                            color: Color.fromARGB(255, 65, 227, 168),
-                            Icons.rounded_corner,
-                            size: 24,
-                          ),
+                child: const Stack(
+                  children: [
+                    Positioned(
+                      top: 10,
+                      left: 10,
+                      child: Opacity(
+                        opacity: 0.50,
+                        child: Icon(
+                          color: Colors.deepPurple,
+                          Icons.rounded_corner,
+                          size: 24,
                         ),
                       ),
-                      Positioned(
-                        top: 10,
-                        right: 10,
-                        child: Opacity(
-                          opacity: 0.50,
-                          child: Icon(
-                            color: Color.fromARGB(255, 65, 227, 168),
-                            Icons.rounded_corner,
-                            size: 24,
-                          ),
+                    ),
+                    Positioned(
+                      top: 10,
+                      right: 10,
+                      child: Opacity(
+                        opacity: 0.50,
+                        child: Icon(
+                          color: Colors.deepPurple,
+                          Icons.rounded_corner,
+                          size: 24,
                         ),
                       ),
-                      Positioned(
-                        bottom: 10,
-                        left: 10,
-                        child: Opacity(
-                          opacity: 0.50,
-                          child: Icon(
-                            color: Color.fromARGB(255, 65, 227, 168),
-                            Icons.rounded_corner,
-                            size: 24,
-                          ),
+                    ),
+                    Positioned(
+                      bottom: 10,
+                      left: 10,
+                      child: Opacity(
+                        opacity: 0.50,
+                        child: Icon(
+                          color: Colors.deepPurple,
+                          Icons.rounded_corner,
+                          size: 24,
                         ),
                       ),
-                      Positioned(
-                        bottom: 10,
-                        right: 10,
-                        child: Opacity(
-                          opacity: 0.50,
-                          child: Icon(
-                            color: Color.fromARGB(255, 65, 227, 168),
-                            Icons.rounded_corner,
-                            size: 24,
-                          ),
+                    ),
+                    Positioned(
+                      bottom: 10,
+                      right: 10,
+                      child: Opacity(
+                        opacity: 0.50,
+                        child: Icon(
+                          color: Colors.deepPurple,
+                          Icons.rounded_corner,
+                          size: 24,
                         ),
                       ),
-                      Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Opacity(
-                              opacity: 0.50,
-                              child: Icon(
-                                color: Color.fromARGB(255, 65, 227, 168),
-                                Icons.touch_app,
-                                size: 50,
+                    ),
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Opacity(
+                            opacity: 0.50,
+                            child: Icon(
+                              color: Colors.deepPurple,
+                              Icons.touch_app,
+                              size: 50,
+                            ),
+                          ),
+                          Opacity(
+                            opacity: 0.50,
+                            child: Text(
+                              'MouseController',
+                              style: TextStyle(
+                                fontSize: 30,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.deepPurple,
                               ),
                             ),
-                            Opacity(
-                              opacity: 0.50,
-                              child: Text(
-                                'TOUCHPAD!',
-                                style: TextStyle(
-                                  fontSize: 30,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color.fromARGB(255, 65, 227, 168),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -536,7 +470,7 @@ class _MouseController extends State<MouseController> {
                   },
                   style: ButtonStyle(
                     backgroundColor: WidgetStateProperty.all<Color>(
-                      const Color.fromARGB(255, 59, 179, 135),
+                      Colors.deepPurple,
                     ),
                   ),
                   child: const Text('Left Click'),
@@ -548,7 +482,7 @@ class _MouseController extends State<MouseController> {
                   },
                   style: ButtonStyle(
                     backgroundColor: WidgetStateProperty.all<Color>(
-                      const Color.fromARGB(255, 59, 179, 135),
+                      Colors.deepPurple,
                     ),
                   ),
                   child: const Text('Right Click'),
@@ -557,6 +491,95 @@ class _MouseController extends State<MouseController> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class Process {
+  final String pid;
+  final String name;
+
+  Process({required this.pid, required this.name});
+}
+
+class ProcessController extends StatefulWidget {
+  const ProcessController({super.key});
+
+  @override
+  State<ProcessController> createState() => _ProcessControllerState();
+}
+
+class _ProcessControllerState extends State<ProcessController> {
+  final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+
+  List<Process> processes = [];
+
+  @override
+  void initState() {
+    super.initState();
+    IsolateNameServer.lookupPortByName('askForProcesses')?.send("");
+    globalProcessListNotifier.addListener(_setProcesses);
+  }
+
+  void _setProcesses() {
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      key: scaffoldKey,
+      appBar: getMainAppBar(context, "Process Controller", scaffoldKey),
+      drawer: getMainDrawer(context),
+      body: ValueListenableBuilder<List<Process>>(
+        valueListenable: globalProcessListNotifier,
+        builder: (context, processes, _) {
+          return ListView.builder(
+            itemCount: processes.length,
+            itemBuilder: (context, index) {
+              var process = processes[index];
+              return ListTile(
+                title: Text('Name: ${process.name}'),
+                subtitle: Text('PID: ${process.pid}'),
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: const Text('KILL PROCESS'),
+                        content:
+                            Text('Name: ${process.name}\nPID: ${process.pid}'),
+                        actions: [
+                          TextButton(
+                            onPressed: () {
+                              IsolateNameServer.lookupPortByName('killProcess')
+                                  ?.send(process.pid);
+                              Navigator.of(context).pop();
+                            },
+                            child: const Text('KILL'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                            child: const Text('Close'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          IsolateNameServer.lookupPortByName('askForProcesses')?.send("");
+        },
+        child: const Icon(Icons.add),
       ),
     );
   }

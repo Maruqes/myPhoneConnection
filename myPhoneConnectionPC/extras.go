@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"runtime"
 	"strconv"
 	"strings"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/go-vgo/robotgo"
 	"github.com/micmonay/keybd_event"
+	"github.com/shirou/gopsutil/v3/process"
 )
 
 type Extras struct {
@@ -77,4 +79,61 @@ func (extras *Extras) initKeys() {
 		time.Sleep(2 * time.Second)
 	}
 	// Here, the program will generate "ABAB" as if they were pressed on the keyboard.
+}
+
+func (extras *Extras) askForProcesses(s string) {
+	//get all processes
+	processes, err := process.Processes()
+	if err != nil {
+		log.Println("Error fetching processes:", err)
+		return
+	}
+	//divide processes with //||// and PID from name with &%&
+	res := ""
+	for i := 0; i < len(processes); i++ {
+
+		owner, err := processes[i].Username()
+		if err != nil {
+			log.Println("Error fetching process owner:", err)
+			continue
+		}
+
+		if owner == "root" {
+			continue
+		}
+
+		name, err := processes[i].Name()
+		if err != nil {
+			log.Println("Error fetching process name:", err)
+			continue
+		}
+
+		pid := processes[i].Pid
+
+		process := name + "&%&" + strconv.Itoa(int(pid))
+		res += process + "//||//"
+	}
+
+	ws.sendData("setNewProcesses", res)
+	log.Println("Processes sent")
+}
+
+func (extras *Extras) killProcess(s string) {
+	pid, err := strconv.Atoi(s)
+	if err != nil {
+		log.Println("Error converting PID to int:", err)
+		return
+	}
+
+	proc, err := process.NewProcess(int32(pid))
+	if err != nil {
+		log.Println("Error fetching process:", err)
+		return
+	}
+
+	err = proc.Kill()
+	if err != nil {
+		log.Println("Error killing process:", err)
+		return
+	}
 }

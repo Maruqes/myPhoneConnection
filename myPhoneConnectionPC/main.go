@@ -239,8 +239,10 @@ func main() {
 	ws.registerDataStreams("leftPowerpoint", extras.leftPowerpoint)
 	ws.registerDataStreams("mouseMoveEvent", extras.mouseMoveEvent)
 	ws.registerDataStreams("mouseEvent", extras.mouseEvent)
+	ws.registerDataStreams("askForProcesses", extras.askForProcesses)
+	ws.registerDataStreams("killProcess", extras.killProcess)
 	extras.initKeys()
-
+	
 	go serverFunc()
 	go listenToChangesAndOwner()
 	go clipboardCopyCallBack()

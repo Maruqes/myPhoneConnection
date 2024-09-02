@@ -54,7 +54,6 @@ void setPorts() {
       leftPowerpoint.sendPort, 'leftPowerpoint');
   leftPowerpoint.listen((_) {
     connectionPC.ws.sendData("leftPowerpoint", "");
-    debugPrint("leftPowerpoint");
   });
 
   ReceivePort rightPowerpoint = ReceivePort();
@@ -62,11 +61,11 @@ void setPorts() {
       rightPowerpoint.sendPort, 'rightPowerpoint');
   rightPowerpoint.listen((_) {
     connectionPC.ws.sendData("rightPowerpoint", "");
-    debugPrint("rightPowerpoint");
   });
 
   ReceivePort mouseMoveEvent = ReceivePort();
-  IsolateNameServer.registerPortWithName(mouseMoveEvent.sendPort, 'mouseMoveEvent');
+  IsolateNameServer.registerPortWithName(
+      mouseMoveEvent.sendPort, 'mouseMoveEvent');
   mouseMoveEvent.listen((data) {
     connectionPC.ws.sendData("mouseMoveEvent", data);
   });
@@ -75,6 +74,19 @@ void setPorts() {
   IsolateNameServer.registerPortWithName(mouseEvent.sendPort, 'mouseEvent');
   mouseEvent.listen((data) {
     connectionPC.ws.sendData("mouseEvent", data);
+  });
+
+  ReceivePort askForProcesses = ReceivePort();
+  IsolateNameServer.registerPortWithName(
+      askForProcesses.sendPort, 'askForProcesses');
+  askForProcesses.listen((_) {
+    connectionPC.ws.sendData("askForProcesses", "");
+  });
+
+  ReceivePort killProcess = ReceivePort();
+  IsolateNameServer.registerPortWithName(killProcess.sendPort, 'killProcess');
+  killProcess.listen((pid) {
+    connectionPC.ws.sendData("killProcess", pid);
   });
 }
 

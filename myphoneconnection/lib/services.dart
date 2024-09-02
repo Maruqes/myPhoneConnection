@@ -53,6 +53,29 @@ class ListenToPort {
     port3.listen((_) {
       globalDeviceListNotifier.value = List.from(devicesTempToAdd);
     });
+
+    ReceivePort setNewProcesses = ReceivePort();
+    IsolateNameServer.registerPortWithName(
+        setNewProcesses.sendPort, 'setNewProcesses');
+    setNewProcesses.listen((data) {
+      List<String> processesString = data.split("//||//");
+
+      List<Process> newProcesses = [];
+
+      for (int i = 0; i < processesString.length; i++) {
+        try {
+          String name = processesString[i].split("&%&")[0];
+          String pid = processesString[i].split("&%&")[1];
+
+          newProcesses.add(Process(pid: pid, name: name));
+        } catch (e) {
+          debugPrint("Error in setNewProcesses: $e");
+        }
+      }
+      globalProcessListNotifier.value = newProcesses;
+
+      debugPrint("Processes set");
+    });
   }
 }
 
