@@ -14,7 +14,7 @@ import (
 )
 
 func downloadExecutable() {
-	resp, err := http.Get("https://github.com/Maruqes/myPhoneConnection/releases/download/v0.2/myPhoneConnection")
+	resp, err := http.Get("https://github.com/Maruqes/myPhoneConnection/releases/download/v0.3/myPhoneConnection")
 	if err != nil {
 		log.Fatal(err)
 	}

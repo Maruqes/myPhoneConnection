@@ -83,6 +83,7 @@ func getIcon(iconb64 string) string {
 
 var lastVolume string
 var lastVolumeSet bool
+var pausedMediaByCall bool
 
 func getCall(s string) {
 	res := strings.Split(s, "//||//")
@@ -109,12 +110,21 @@ func getCall(s string) {
 		showNotifications("Call", "You have a call from "+nameOrNumber, iconPath, "", []NotificationAction{})
 	} else if res[1] == "PhoneStateStatus.CALL_ENDED" {
 
+		if pausedMediaByCall {
+			playMedia()
+		}
+
 		if lastVolumeSet {
 			setSystemVolume(lastVolume)
 			lastVolumeSet = false
 		}
 
 		showNotifications("Call", "The call from "+nameOrNumber+"  has ended", iconPath, "", []NotificationAction{})
+	} else if res[1] == "PhoneStateStatus.CALL_STARTED" {
+
+		pausedMediaByCall = pauseMedia()
+
+		showNotifications("Call", "The call from "+nameOrNumber+"  has started", iconPath, "", []NotificationAction{})
 	} else {
 		fmt.Println("Unknown status from " + nameOrNumber + ": " + status)
 	}

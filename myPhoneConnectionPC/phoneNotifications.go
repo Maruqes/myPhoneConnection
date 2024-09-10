@@ -2,20 +2,20 @@ package main
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 )
 
 type NotificationAction struct {
-	text  string
-	index string
-	uid   string
+	text     string
+	index    string
+	function func()
+	id       string
+	input    bool
 }
 
 func getdunstifyPath() string {
@@ -53,7 +53,7 @@ func showAcceptPhoneNotification(title string, text string) (bool, error) {
 		fmt.Println("Action: ", "Decline")
 		return false, nil
 	} else {
-		return false, errors.New("No action")
+		return false, errors.New("no action")
 	}
 }
 
@@ -106,16 +106,34 @@ func showNotifications(title string, text string, iconPath string, miniIconPath 
 	for i := range actions {
 		if out == actions[i].index {
 			fmt.Println("Action: ", actions[i].text)
-			ws.sendData("notAction", actions[i].uid+"//"+actions[i].index)
+			actions[i].function()
 		}
+	}
+}
+
+func openInstagram() {
+	cmd := exec.Command("xdg-open", "https://www.instagram.com/direct/")
+	err := cmd.Run()
+	if err != nil {
+		fmt.Println("Error opening Instagram:", err)
+	}
+}
+
+func openWhatsApp() {
+	cmd := exec.Command("xdg-open", "https://web.whatsapp.com/")
+	err := cmd.Run()
+	if err != nil {
+		fmt.Println("Error opening WhatsApp:", err)
 	}
 }
 
 func newNotification(fullData string) {
 	dataSlice := strings.Split(fullData, "//||//")
-	data := dataSlice[0]
 
-	dataIcon, err := base64.StdEncoding.DecodeString(dataSlice[1])
+	if dataSlice[2] != "null" {
+		dataSlice[2] = strings.Replace(dataSlice[2], "data:image/png;base64,", "", -1)
+	}
+	dataIcon, err := base64.StdEncoding.DecodeString(dataSlice[2])
 	iconPath := ""
 	if err == nil {
 		iconPath, err = saveTemporaryImage(dataIcon)
@@ -126,7 +144,10 @@ func newNotification(fullData string) {
 		fmt.Println("Error decoding image:", err)
 	}
 
-	dataMiniIcon, err := base64.StdEncoding.DecodeString(dataSlice[2])
+	if dataSlice[3] != "null" {
+		dataSlice[3] = strings.Replace(dataSlice[3], "data:image/png;base64,", "", -1)
+	}
+	dataMiniIcon, err := base64.StdEncoding.DecodeString(dataSlice[3])
 	miniIconPath := ""
 	if err == nil {
 		miniIconPath, err = saveTemporaryImage(dataMiniIcon)
@@ -137,38 +158,29 @@ func newNotification(fullData string) {
 		fmt.Println("Error decoding image:", err)
 	}
 
-	data = data[1 : len(data)-1]
-	data = strings.Replace(data, "\\\"", "\"", -1)
-
-	fmt.Println("New Notification: ", string(data))
-
-	if !json.Valid([]byte(data)) {
-		fmt.Println("Invalid JSON:", data)
-		return
+	actions := []NotificationAction{}
+	if dataSlice[4] == "com.instagram.android" {
+		actions = append(actions, NotificationAction{text: "Open Instagram", index: "openInstagram", function: openInstagram, input: false})
+	} else if dataSlice[4] == "com.whatsapp" {
+		actions = append(actions, NotificationAction{text: "Open WhatsApp", index: "openWhatsApp", function: openWhatsApp, input: false})
 	}
 
-	var jsonData map[string]interface{}
-	err = json.Unmarshal([]byte(data), &jsonData)
-	if err != nil {
-		fmt.Println("Error converting to JSON:", err)
-		return
-	}
+	if dataSlice[5] == "true" {
+		actions = append(actions, NotificationAction{text: "Reply", index: "replyText", function: func() {
+			commandToGetReply := "zenity --entry --text \"Enter your message:\" --title \"Input Required\" 2>/dev/null"
 
-	title := fmt.Sprintf("%v", jsonData["title"])
-	text := fmt.Sprintf("%v", jsonData["text"])
-
-	var actions []NotificationAction
-
-	if jsonData["actions"] != nil {
-		for i := range len(jsonData["actions"].([]interface{})) {
-			action := jsonData["actions"].([]interface{})[i].(map[string]interface{})
-			if action["inputs"] == nil {
-				titleNot := fmt.Sprintf("%v", action["title"])
-				fmt.Println("Action: ", titleNot)
-				actions = append(actions, NotificationAction{titleNot, strconv.Itoa(i), dataSlice[3]})
+			cmd := exec.Command("sh", "-c", commandToGetReply)
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				fmt.Println("Error executing command:", err)
 			}
-		}
+
+			out := strings.ReplaceAll(string(output), "\n", "")
+			fmt.Println("Reply: ", out)
+			ws.sendData("replyNotification", dataSlice[6]+"//||//"+out)
+
+		}, input: true, id: dataSlice[6]})
 	}
 
-	go showNotifications(title, text, iconPath, miniIconPath, actions)
+	go showNotifications(dataSlice[0], dataSlice[1], iconPath, miniIconPath, actions)
 }

@@ -1,30 +1,59 @@
 import 'dart:async';
-import 'dart:collection';
 import 'dart:convert';
 import 'dart:isolate';
-import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui';
 
-import 'package:audio_service/audio_service.dart';
 import 'package:flutter/widgets.dart';
-import 'package:flutter_notification_listener/flutter_notification_listener.dart';
-import 'package:http/http.dart' as http;
+// import 'package:flutter_notification_listener/flutter_notification_listener.dart';
 import 'package:myphoneconnection/backgroundService.dart';
-import 'package:myphoneconnection/calls.dart';
 
 import 'package:myphoneconnection/main.dart';
 import 'package:myphoneconnection/server.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:myphoneconnection/galleryFunctions.dart';
 import 'package:device_apps/device_apps.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
+import 'package:notification_listener_service/notification_event.dart';
+import 'package:notification_listener_service/notification_listener_service.dart';
 
 class ListenToPort {
   List<Device> devicesTempToAdd = [];
 
   void initListenPort() {
+    ReceivePort infoPC = ReceivePort();
+    IsolateNameServer.registerPortWithName(infoPC.sendPort, 'setInfoPC');
+    infoPC.listen((data) {
+      String cpuUsage = data.split("&%&")[0];
+      String memTotal = data.split("&%&")[1];
+      String memUsed = data.split("&%&")[2];
+      String diskTotal = data.split("&%&")[3];
+      String diskUsed = data.split("&%&")[4];
+      String temp = data.split("&%&")[5];
+
+      double cpuUsageFloat = double.parse(cpuUsage);
+      cpuUsageFloat = cpuUsageFloat / 100;
+
+      double memUsageFloat = double.parse(memUsed) / double.parse(memTotal);
+
+      double diskUsageFloat = double.parse(diskUsed) / double.parse(diskTotal);
+
+      List<String> tempSplit = temp.split(",");
+
+      List<double> temps = [];
+
+      for (int i = 0; i < tempSplit.length; i++) {
+        try {
+          temps.add(double.parse(tempSplit[i]));
+        } catch (e) {
+          debugPrint("Error in setInfoPC: $e");
+        }
+      }
+
+      infoSystemMonitor tmd = infoSystemMonitor(
+          cpuUsageFloat, memUsageFloat, diskUsageFloat, temps);
+      testNotList.value = tmd;
+    });
+
     ReceivePort port = ReceivePort();
     IsolateNameServer.registerPortWithName(port.sendPort, 'addDevice');
     // Listen for messages from the background isolate
@@ -79,7 +108,48 @@ class ListenToPort {
   }
 }
 
-class OurNotificationListener {
+class ServiceNotificationEventWithDate {
+  ServiceNotificationEvent event;
+  DateTime date;
+  ServiceNotificationEventWithDate(this.event, this.date);
+}
+
+List<ServiceNotificationEventWithDate> serviceNotificationsSave = [];
+
+class NotsListener {
+  Future<void> checkServiceNotificationsSave() async {
+    for (int i = 0; i < serviceNotificationsSave.length; i++) {
+      if (DateTime.now()
+              .toUtc()
+              .difference(serviceNotificationsSave[i].date)
+              .inMinutes >
+          2) {
+        serviceNotificationsSave.removeAt(i);
+        debugPrint("Notification removed from save");
+      }
+    }
+  }
+
+  void replyToServiceNotification(String id, String message) {
+    int idInt = int.parse(id);
+    for (int i = 0; i < serviceNotificationsSave.length; i++) {
+      if (serviceNotificationsSave[i].event.id! == idInt) {
+        serviceNotificationsSave[i].event.sendReply(message);
+        debugPrint("Notification replied");
+        serviceNotificationsSave.removeAt(i);
+        return;
+      }
+    }
+  }
+
+  void replyParser(String message) {
+    List<String> messageSplit = message.split("//||//");
+    String id = messageSplit[0];
+    String reply = messageSplit[1];
+
+    replyToServiceNotification(id, reply);
+  }
+
   static Future<String> getIconWithPackageName(String package) async {
     List<Application> apps = await DeviceApps.getInstalledApplications(
         onlyAppsWithLaunchIntent: true,
@@ -96,54 +166,35 @@ class OurNotificationListener {
     return "";
   }
 
-  void startListening() async {
-    try {
-      debugPrint("start listening");
-      var hasPermission = await NotificationsListener.hasPermission;
-      if (hasPermission == null || !hasPermission) {
-        debugPrint("no permission, so open settings");
-        NotificationsListener.openPermissionSettings();
+  Future<void> startListening() async {
+    NotificationListenerService.notificationsStream.listen((event) async {
+      checkServiceNotificationsSave();
+
+      if (event.packageName == "com.android.systemui" ||
+          event.packageName == "com.maruqes.myphoneconnection") {
         return;
       }
-      var isR = await NotificationsListener.isRunning;
-
-      if (isR == null || !isR) {
-        await NotificationsListener.startService();
+      String iconb64 = "";
+      String appIcon = "";
+      if (event.largeIcon != null) {
+        iconb64 = base64.encode(event.largeIcon!);
+      } else {
+        iconb64 = "null";
       }
-    } catch (e) {
-      debugPrint("Error in startListening: $e");
-    }
-  }
 
-  @pragma('vm:entry-point')
-  static Future<void> onData(NotificationEvent evt) async {
-    try {
-      if (evt.packageName == "com.example.myphoneconnection") return;
+      appIcon = await getIconWithPackageName(event.packageName!);
 
-      String iconb64 = base64.encode(evt.largeIcon!);
+      String canReply = "false";
+      if (event.canReply! == true) {
+        canReply = "true";
+        serviceNotificationsSave.add(
+            ServiceNotificationEventWithDate(event, DateTime.now().toUtc()));
+        debugPrint("Notification added to save");
+      }
 
-      String appIcon = await getIconWithPackageName(evt.packageName!);
       connectionPC.ws.sendData("newPhoneNotification",
-          "${jsonEncode(evt.toString())}//||//$iconb64//||//$appIcon//||//${evt.uniqueId}");
-
-      debugPrint("send evt to ui: $evt");
-    } catch (e) {
-      debugPrint("Error in onData: $e");
-    }
-  }
-
-  Future<void> initPlatformState() async {
-    try {
-      NotificationsListener.initialize(callbackHandle: onData);
-      // register your event handler in the UI logic.
-      NotificationsListener.receivePort?.listen((evt) => onData(evt));
-    } catch (e) {
-      debugPrint("Error in initPlatformState: $e");
-    }
-  }
-
-  void stopListening() async {
-    await NotificationsListener.stopService();
+          "${event.title}//||//${event.content}//||//$iconb64//||//$appIcon//||//${event.packageName}//||//$canReply//||//${event.id}");
+    });
   }
 }
 
@@ -172,10 +223,6 @@ class NotificationController {
 class Notify {
   AwesomeNotifications myAwesomeNots = AwesomeNotifications();
   int mediaPlayerID = -1;
-
-  void shutAllNots() {
-    myAwesomeNots.cancelAll();
-  }
 
   Future<void> init() async {
     myAwesomeNots.setChannel(NotificationChannel(

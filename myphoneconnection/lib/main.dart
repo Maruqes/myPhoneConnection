@@ -1,12 +1,11 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'dart:ui';
-import 'package:flutter_notification_listener/flutter_notification_listener.dart';
 import 'package:myphoneconnection/backgroundService.dart';
 import 'package:myphoneconnection/mediaPlayer.dart';
 import 'package:myphoneconnection/server.dart';
 import 'package:myphoneconnection/services.dart';
 import 'package:flutter/material.dart';
+import 'package:notification_listener_service/notification_listener_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 /*
@@ -35,16 +34,6 @@ Future<void> requestPermission() async {
     status = await Permission.contacts.request();
   }
 
-  status = await Permission.photos.status;
-  if (status.isDenied) {
-    status = await Permission.photos.request();
-  }
-
-  status = await Permission.videos.status;
-  if (status.isDenied) {
-    status = await Permission.videos.request();
-  }
-
   status = await Permission.phone.status;
   if (status.isDenied) {
     status = await Permission.phone.request();
@@ -54,16 +43,23 @@ Future<void> requestPermission() async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  final bool status = await NotificationListenerService.isPermissionGranted();
+
+  if (!status) {
+    final bool status2 = await NotificationListenerService.requestPermission();
+    if (!status2) {
+      return;
+    }
+  }
+
   await requestPermission();
 
   ListenToPort().initListenPort();
 
-  await PcService().initializeService();
-
-  OurNotificationListener().stopListening();
-
   nots.setListeners();
   await nots.init();
+
+  await PcService().initializeService();
 
   runApp(const MyApp());
 }
@@ -71,7 +67,7 @@ Future<void> main() async {
 Drawer getMainDrawer(BuildContext context) {
   return Drawer(
     child: Column(
-      mainAxisAlignment: MainAxisAlignment.center, // Add this line
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         ElevatedButton(
             onPressed: () {
@@ -109,11 +105,21 @@ Drawer getMainDrawer(BuildContext context) {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ProcessController(),
+                  builder: (context) => const ProcessController(),
                 ),
               );
             },
             child: const Text("Process Controller")),
+        ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SystemMonitorApp(),
+                ),
+              );
+            },
+            child: const Text("System Monitor")),
       ],
     ),
   );
@@ -128,17 +134,6 @@ AppBar getMainAppBar(
       icon: const Icon(Icons.menu),
       onPressed: () => scaffoldKey.currentState!.openDrawer(),
     ),
-    actions: [
-      IconButton(
-        icon: const Icon(Icons.settings),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const SettingsPage()),
-          );
-        },
-      ),
-    ],
     automaticallyImplyLeading: false,
   );
 }
@@ -173,14 +168,10 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   bool started = false;
 
+  @override
   void initState() {
     super.initState();
     globalDeviceListNotifier.addListener(_updateDeviceList);
-  }
-
-  @pragma('vm:entry-point')
-  static void _onData(NotificationEvent event) {
-    debugPrint(event.toString());
   }
 
   @override
@@ -225,22 +216,6 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
           // Add InputWidget here
         ],
-      ),
-    );
-  }
-}
-
-class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Settings"),
-      ),
-      body: Column(
-        children: [],
       ),
     );
   }
@@ -305,12 +280,9 @@ class _PowerpointControllerState extends State<PowerpointController> {
                           ?.send("");
                     },
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.all(
-                          16.0), // Adjust the padding as needed
-                      textStyle: const TextStyle(
-                          fontSize: 20.0), // Adjust the font size as needed
-                      minimumSize: Size(double.infinity,
-                          height), // Set the minimum height of the button
+                      padding: const EdgeInsets.all(16.0),
+                      textStyle: const TextStyle(fontSize: 20.0),
+                      minimumSize: Size(double.infinity, height),
                     ),
                     child: const Text('Left'),
                   ),
@@ -322,12 +294,9 @@ class _PowerpointControllerState extends State<PowerpointController> {
                           ?.send("");
                     },
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.all(
-                          16.0), // Adjust the padding as needed
-                      textStyle: const TextStyle(
-                          fontSize: 20.0), // Adjust the font size as needed
-                      minimumSize: Size(double.infinity,
-                          height), // Set the minimum height of the button
+                      padding: const EdgeInsets.all(16.0),
+                      textStyle: const TextStyle(fontSize: 20.0),
+                      minimumSize: Size(double.infinity, height),
                     ),
                     child: const Text('Right'),
                   ),
@@ -348,6 +317,29 @@ class MouseController extends StatefulWidget {
 
 class _MouseController extends State<MouseController> {
   final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+  final TextEditingController _controller = TextEditingController();
+  int _previousTextLength = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_handleTextInput);
+  }
+
+  void _handleTextInput() {
+    String text = _controller.text;
+    if (text.length < _previousTextLength) {
+      // Backspace key pressed
+      IsolateNameServer.lookupPortByName('keyboardEvent')?.send("backspace");
+    } else {
+      if (text.isNotEmpty) {
+        String key = text[text.length - 1];
+        IsolateNameServer.lookupPortByName('keyboardEvent')?.send(key);
+        debugPrint(key);
+      }
+      _previousTextLength = text.length;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -357,6 +349,14 @@ class _MouseController extends State<MouseController> {
       drawer: getMainDrawer(context),
       body: Column(
         children: [
+          TextField(
+            controller: _controller,
+            decoration: const InputDecoration(
+              labelText: 'Type here',
+              border: OutlineInputBorder(),
+            ),
+            keyboardType: TextInputType.multiline,
+          ),
           Expanded(
             child: Center(
               child: GestureDetector(
@@ -487,6 +487,18 @@ class _MouseController extends State<MouseController> {
                   ),
                   child: const Text('Right Click'),
                 ),
+                ElevatedButton(
+                  onPressed: () {
+                    IsolateNameServer.lookupPortByName('keyboardEvent')
+                        ?.send("enter");
+                  },
+                  style: ButtonStyle(
+                    backgroundColor: WidgetStateProperty.all<Color>(
+                      Colors.deepPurple,
+                    ),
+                  ),
+                  child: const Text('Enter'),
+                ),
               ],
             ),
           ),
@@ -501,6 +513,10 @@ class Process {
   final String name;
 
   Process({required this.pid, required this.name});
+}
+
+void setProcesses(String s) {
+  IsolateNameServer.lookupPortByName('setNewProcesses')?.send(s);
 }
 
 class ProcessController extends StatefulWidget {
@@ -582,5 +598,178 @@ class _ProcessControllerState extends State<ProcessController> {
         child: const Icon(Icons.add),
       ),
     );
+  }
+}
+
+class SystemMonitorApp extends StatelessWidget {
+  const SystemMonitorApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'System Monitor',
+      theme: ThemeData(
+        primarySwatch: Colors.deepPurple, // Change the primary color
+        colorScheme: ColorScheme.fromSwatch(
+          primarySwatch: Colors.deepPurple, // Change the color scheme
+        ),
+      ),
+      darkTheme: ThemeData.dark(),
+      home: const SystemMonitorScreen(),
+    );
+  }
+}
+
+class SystemMonitorScreen extends StatefulWidget {
+  const SystemMonitorScreen({super.key});
+
+  @override
+  State<StatefulWidget> createState() => _SystemMonitorScreenState();
+}
+
+void setInfoPc(String data) {
+  IsolateNameServer.lookupPortByName('setInfoPC')?.send(data);
+}
+
+// ignore: camel_case_types
+class infoSystemMonitor {
+  double cpuUsage;
+  double ramUsage;
+  double diskUsage;
+  List<double> coresTemperature;
+
+  infoSystemMonitor(
+      this.cpuUsage, this.ramUsage, this.diskUsage, this.coresTemperature);
+}
+
+ValueNotifier<infoSystemMonitor> testNotList =
+    ValueNotifier<infoSystemMonitor>(infoSystemMonitor(0, 0, 0, []));
+
+class _SystemMonitorScreenState extends State<SystemMonitorScreen> {
+  double cpuUsage = 0;
+  double ramUsage = 0;
+  double diskUsage = 0;
+  List<double> coresTemperature = [];
+
+  final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  void initState() {
+    super.initState();
+    Timer.periodic(const Duration(seconds: 1), (timer) {
+      IsolateNameServer.lookupPortByName('askForPcInfo')?.send("");
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      key: scaffoldKey,
+      appBar: getMainAppBar(context, "Process Controller", scaffoldKey),
+      drawer: getMainDrawer(context),
+      body: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: ValueListenableBuilder<infoSystemMonitor>(
+          valueListenable: testNotList,
+          builder: (context, infoSystemMonitor value, _) {
+            return GridView.count(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              children: <Widget>[
+                _buildMonitoringCard(
+                  'CPU Usage',
+                  _buildProgressBar(value.cpuUsage, 'CPU'),
+                  Icons.memory,
+                ),
+                _buildMonitoringCard(
+                  'RAM Usage',
+                  _buildProgressBar(value.ramUsage, 'RAM'),
+                  Icons.storage,
+                ),
+                _buildMonitoringCard(
+                  'Disk Usage',
+                  _buildProgressBar(value.diskUsage, 'Disk'),
+                  Icons.sd_storage,
+                ),
+                for (int i = 0; i < value.coresTemperature.length; i++)
+                  _buildMonitoringCard(
+                    'Core ${i + 1} Temperature',
+                    _buildTemperatureBar(value.coresTemperature[i]),
+                    Icons.thermostat,
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMonitoringCard(String title, Widget content, IconData icon) {
+    return Card(
+      elevation: 15,
+      margin: const EdgeInsets.all(0),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Icon(icon, size: 20),
+            const SizedBox(height: 10),
+            Text(title,
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            Expanded(child: content),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProgressBar(double value, String label) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('$label Usage', style: const TextStyle(fontSize: 16)),
+        const SizedBox(height: 5),
+        LinearProgressIndicator(
+          value: value,
+          backgroundColor: Colors.grey[300],
+          valueColor: AlwaysStoppedAnimation<Color>(
+              Theme.of(context).colorScheme.primary),
+        ),
+        const SizedBox(height: 10),
+        Text('${(value * 100).toInt()}%', style: const TextStyle(fontSize: 16)),
+      ],
+    );
+  }
+
+  Widget _buildTemperatureBar(double temperature) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Temperature: ${temperature.toStringAsFixed(1)}°C',
+            style: const TextStyle(fontSize: 16)),
+        const SizedBox(height: 5),
+        LinearProgressIndicator(
+          value: temperature / 100, // assuming 100°C is the max
+          backgroundColor: Colors.grey[300],
+          valueColor: AlwaysStoppedAnimation<Color>(
+            temperature > 75 ? Colors.red : Colors.green,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void updateSystemData(infoSystemMonitor newInfo) {
+    setState(() {
+      cpuUsage = newInfo.cpuUsage;
+      ramUsage = newInfo.ramUsage;
+      diskUsage = newInfo.diskUsage;
+      coresTemperature = newInfo.coresTemperature;
+    });
   }
 }

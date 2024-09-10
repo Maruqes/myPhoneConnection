@@ -1,9 +1,9 @@
+// ignore: file_names
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
-import 'package:myphoneconnection/galleryFunctions.dart';
+import 'package:myphoneconnection/config.dart';
 import 'package:myphoneconnection/main.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:myphoneconnection/server.dart';
@@ -30,6 +30,10 @@ class MediaPlayer {
   int position = 0;
   bool paused = true;
 
+  void clearNotification(String nullS) {
+    customAudioHandler.audioHandler.stop();
+  }
+
   void clearMediaPlayer(String nullS) {
     mediaPlayer = Players(currentPlayer: "", properties: []);
     url = "";
@@ -38,10 +42,6 @@ class MediaPlayer {
     length = 0;
     position = 0;
     paused = true;
-  }
-
-  void shutAllNots(String nullS) {
-    customAudioHandler.stop();
   }
 
   void setPosition(String newPosition) {
@@ -96,6 +96,7 @@ class MediaPlayer {
         } else {
           paused = true;
         }
+        debugPrint("playbackStatus: ${mediaPlayer.properties[j].value}");
       }
     }
 
@@ -106,12 +107,13 @@ class MediaPlayer {
     debugPrint("Position: $position");
     debugPrint("Paused: $paused");
     if (title != "") {
+      //restart the audio handler
       customAudioHandler.setMediaItem(title, album, url, length);
       if (paused) {
-        customAudioHandler.pause();
+        customAudioHandler.PcPause();
         debugPrint("Paused");
       } else {
-        customAudioHandler.audioHandler.play();
+        customAudioHandler.pcPlay();
         debugPrint("Playing");
       }
     }
@@ -141,10 +143,15 @@ class MediaPlayer {
 class CustomAudioHandler extends BaseAudioHandler with SeekHandler {
   late AudioHandler audioHandler;
 
+  // ignore: non_constant_identifier_names
   late String Title;
+  // ignore: non_constant_identifier_names
   late String Album;
+  // ignore: non_constant_identifier_names
   late String Url;
+  // ignore: non_constant_identifier_names
   late int Length;
+  // ignore: non_constant_identifier_names
   late int Position;
 
   @override
@@ -162,7 +169,6 @@ class CustomAudioHandler extends BaseAudioHandler with SeekHandler {
   Future<void> skipToNext() async {
     connectionPC.ws.sendData("media", "next");
   }
-
 
   @override
   Future<void> play() async {
@@ -183,6 +189,27 @@ class CustomAudioHandler extends BaseAudioHandler with SeekHandler {
     ));
 
     connectionPC.ws.sendData("media", "play");
+
+    // Update the notification
+    _setNotification();
+  }
+
+  Future<void> pcPlay() async {
+    // Update the state to playing
+    playbackState.add(playbackState.value.copyWith(
+      playing: true,
+      controls: [
+        MediaControl.skipToPrevious,
+        MediaControl.pause,
+        MediaControl.skipToNext
+      ],
+      systemActions: const {
+        MediaAction.seek,
+        MediaAction.seekForward,
+        MediaAction.seekBackward,
+      },
+      processingState: AudioProcessingState.ready,
+    ));
 
     // Update the notification
     _setNotification();
@@ -211,17 +238,26 @@ class CustomAudioHandler extends BaseAudioHandler with SeekHandler {
     _setNotification();
   }
 
-  @override
-  Future<void> stop() async {
-    // Update the state to stopped
+  // ignore: non_constant_identifier_names
+  Future<void> PcPause() async {
+    // Update the state to paused
     playbackState.add(playbackState.value.copyWith(
       playing: false,
-      controls: [MediaControl.play],
-      processingState: AudioProcessingState.idle,
+      controls: [
+        MediaControl.skipToPrevious,
+        MediaControl.play,
+        MediaControl.skipToNext
+      ],
+      systemActions: const {
+        MediaAction.seek,
+        MediaAction.seekForward,
+        MediaAction.seekBackward,
+      },
+      processingState: AudioProcessingState.ready,
     ));
 
-    // Clear the notification
-    await audioHandler.stop();
+    // Update the notification
+    _setNotification();
   }
 
   Future<void> setPosition(int position) async {
@@ -236,20 +272,26 @@ class CustomAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   Future<void> _setNotification() async {
+    Uri? uri;
+    if (await doesUrlExist(Url)) {
+      uri = Uri.parse(Url);
+    } else {
+      uri = null;
+    }
     mediaItem.add(MediaItem(
       id: '1',
       album: Album,
       title: Title,
-      artUri: Uri.parse(Url),
+      artUri: uri,
       duration: Duration(microseconds: Length),
     ));
   }
 
-  void setMediaItem(String title, String album, String url, int length) {
+  void setMediaItem(String title, String album, String url, int length) async {
     Title = title;
     Album = album;
-    Url = url;
     Length = length;
+    Url = url;
     _setNotification();
   }
 }

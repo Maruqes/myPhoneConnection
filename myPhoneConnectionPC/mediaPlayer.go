@@ -41,17 +41,20 @@ type MediaPlayer struct {
 var currentPlayer []MediaPlayer
 var lastPlayer string
 
-func pauseMedia() {
+func pauseMedia() bool {
 	conn, err := dbus.SessionBus()
 	if err != nil {
 		log.Println("Failed to connect to session bus: ", err)
+		return false
 	}
 
 	object := conn.Object(lastPlayer, "/org/mpris/MediaPlayer2")
 	call := object.Call("org.mpris.MediaPlayer2.Player.Pause", 0)
 	if call.Err != nil {
 		log.Println("Failed to pause media: ", call.Err)
+		return false
 	}
+	return true
 }
 
 func playMedia() {
@@ -158,16 +161,6 @@ func placeAtLast(sender string) {
 			currentPlayer = append(currentPlayer[:i], currentPlayer[i+1:]...)
 			currentPlayer = append(currentPlayer, v)
 			break
-		}
-	}
-}
-
-func printAllProperties() {
-	log.Println("Current players len: " + fmt.Sprintf("%d", len(currentPlayer)))
-	for _, v := range currentPlayer {
-		fmt.Printf("Owner: %s\n", v.currentPlayer)
-		for _, p := range v.properties {
-			fmt.Printf("Property: %s = %s\n", p.key, p.value)
 		}
 	}
 }

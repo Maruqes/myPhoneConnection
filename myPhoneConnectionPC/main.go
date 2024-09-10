@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/getlantern/systray"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/host"
 	"github.com/shirou/gopsutil/mem"
@@ -31,7 +32,7 @@ type SysInfo struct {
 	RAM      uint64 `bson:"ram"`
 }
 
-var PORT = "8080"
+var PORT = "5125"
 
 func generate_key(modulus string, exponent string) (string, []byte, error) {
 	//convert string to int
@@ -209,7 +210,7 @@ func serverFunc() {
 
 	log.Printf("Server listening on port %s", port)
 	err := http.ListenAndServe(":"+port, nil)
-	for err.Error() == "listen tcp :8080: bind: address already in use" {
+	for err.Error() == "listen tcp :"+port+": bind: address already in use" {
 		http.ListenAndServe(":"+port, nil)
 	}
 	log.Fatal(err)
@@ -226,25 +227,24 @@ func createdSocket(s string) {
 func main() {
 	ws.registerDataStreams("null", printit)
 	ws.registerDataStreams("nextPass", nextPassSave)
-	ws.registerDataStreams("imagetest", addCacheImagesFalse)
-	ws.registerDataStreams("imageFirst", addCacheImagesFalse)
 	ws.registerDataStreams("createdSocket", createdSocket)
-	ws.registerDataStreams("updateGallery", addCacheImagesFirst)
-	ws.registerDataStreams("fullImage", showImageInModal)
-	ws.registerDataStreams("fullVIDEO", showVideoInModal)
 	ws.registerDataStreams("media", mediaAction)
 	ws.registerDataStreams("mediaSetPosition", mediaSetPosition)
 	ws.registerDataStreams("newPhoneNotification", newNotification)
 	ws.registerDataStreams("phoneCall", getCall)
 	ws.registerDataStreams("leftPowerpoint", extras.leftPowerpoint)
+	ws.registerDataStreams("rightPowerpoint", extras.rightPowerpoint)
 	ws.registerDataStreams("mouseMoveEvent", extras.mouseMoveEvent)
 	ws.registerDataStreams("mouseEvent", extras.mouseEvent)
 	ws.registerDataStreams("askForProcesses", extras.askForProcesses)
 	ws.registerDataStreams("killProcess", extras.killProcess)
+	ws.registerDataStreams("keyboardEvent", extras.keyboardEvent)
+	ws.registerDataStreams("askForPcInfo", extras.sendPcInfo)
 	extras.initKeys()
-	
-	go serverFunc()
+
 	go listenToChangesAndOwner()
 	go clipboardCopyCallBack()
-	createUI()
+	go func() { systray.Run(onReady, onExit) }()
+
+	serverFunc()
 }

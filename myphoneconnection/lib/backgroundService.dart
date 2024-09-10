@@ -1,3 +1,4 @@
+// ignore: file_names
 import 'dart:async';
 import 'dart:isolate';
 import 'dart:typed_data';
@@ -7,9 +8,9 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:myphoneconnection/calls.dart';
-import 'package:myphoneconnection/galleryFunctions.dart';
 import 'package:myphoneconnection/main.dart';
 import 'package:myphoneconnection/server.dart';
+import 'package:myphoneconnection/services.dart';
 
 @pragma('vm:entry-point')
 Future<bool> onIosBackground(ServiceInstance service) async {
@@ -76,6 +77,13 @@ void setPorts() {
     connectionPC.ws.sendData("mouseEvent", data);
   });
 
+  ReceivePort keyboardEvent = ReceivePort();
+  IsolateNameServer.registerPortWithName(
+      keyboardEvent.sendPort, 'keyboardEvent');
+  keyboardEvent.listen((data) {
+    connectionPC.ws.sendData("keyboardEvent", data);
+  });
+
   ReceivePort askForProcesses = ReceivePort();
   IsolateNameServer.registerPortWithName(
       askForProcesses.sendPort, 'askForProcesses');
@@ -88,6 +96,12 @@ void setPorts() {
   killProcess.listen((pid) {
     connectionPC.ws.sendData("killProcess", pid);
   });
+
+  ReceivePort askForPcInfo = ReceivePort();
+  IsolateNameServer.registerPortWithName(askForPcInfo.sendPort, 'askForPcInfo');
+  askForPcInfo.listen((pid) {
+    connectionPC.ws.sendData("askForPcInfo", pid);
+  });
 }
 
 @pragma('vm:entry-point')
@@ -95,20 +109,19 @@ void onStart(ServiceInstance service) async {
   setPorts();
 
   _initAudioService();
-  publicGallery.initGallery();
   Calls().setStream();
+  
+  NotsListener().startListening();
 
   nots.setBackgroundNotification("My Phone Connection",
       "Not connected"); //settar a notificação de background
   Timer.periodic(const Duration(seconds: 10), (timer) async {
-    publicGallery.checkNumberOfImagesOnGallery();
-
     debugPrint("Checking connection ${connectionPC.ws.checkWsConnection()}");
 
     if (connectionPC.ws.checkWsConnection() == false &&
         connectionPC.isTryingToConnect() == false) {
       try {
-        await connectionPC.startProtocol(8080);
+        await connectionPC.startProtocol(5125);
       } catch (e) {
         debugPrint("Error in startProtocol: $e");
       }

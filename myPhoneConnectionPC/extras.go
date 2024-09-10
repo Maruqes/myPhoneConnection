@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
@@ -10,6 +11,9 @@ import (
 
 	"github.com/go-vgo/robotgo"
 	"github.com/micmonay/keybd_event"
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/disk"
+	"github.com/shirou/gopsutil/mem"
 	"github.com/shirou/gopsutil/v3/process"
 )
 
@@ -63,6 +67,26 @@ func (extras *Extras) mouseEvent(s string) {
 		robotgo.Click("right")
 	} else if s == "left_click" {
 		robotgo.Click("left")
+	}
+}
+
+func (extras *Extras) keyboardEvent(s string) {
+	if s == "enter" {
+		fmt.Println("enter")
+		extras.kb.SetKeys(keybd_event.VK_ENTER)
+
+		extras.kb.Press()
+		time.Sleep(1 * time.Millisecond)
+		extras.kb.Release()
+	} else if s == "backspace" {
+		fmt.Println("backspace")
+		extras.kb.SetKeys(keybd_event.VK_BACKSPACE)
+
+		extras.kb.Press()
+		time.Sleep(1 * time.Millisecond)
+		extras.kb.Release()
+	} else {
+		robotgo.TypeStr(s)
 	}
 }
 
@@ -136,4 +160,49 @@ func (extras *Extras) killProcess(s string) {
 		log.Println("Error killing process:", err)
 		return
 	}
+}
+
+func getCpuTemp() (string, error) {
+	cmd := exec.Command("bash", "-c", "sensors | awk '/^Core/ { gsub(\"[^0-9.]\", \"\", $3); printf \"%s,\", $3 }' | sed 's/,$//'")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+
+	return string(output), nil
+}
+
+func (extras *Extras) sendPcInfo(s string) {
+	cpuUsage, err := cpu.Percent(0, false)
+	if err != nil {
+		log.Println("Error fetching CPU usage:", err)
+		return
+	}
+
+	mem, err := mem.VirtualMemory()
+	if err != nil {
+		log.Println("Error fetching memory usage:", err)
+		return
+	}
+
+	disk, err := disk.Usage("/")
+	if err != nil {
+		log.Println("Error fetching disk usage:", err)
+		return
+	}
+
+	temp, err := getCpuTemp()
+	if err != nil {
+		log.Println("Error fetching CPU temperature:", err)
+		return
+	}
+
+	info := fmt.Sprintf("%.2f", cpuUsage[0]) + "&%&"
+	info += strconv.FormatUint(mem.Total, 10) + "&%&"
+	info += strconv.FormatUint(mem.Used, 10) + "&%&"
+	info += strconv.FormatUint(disk.Total, 10) + "&%&"
+	info += strconv.FormatUint(disk.Used, 10) + "&%&"
+	info += temp
+
+	ws.sendData("setInfoPc", info)
 }

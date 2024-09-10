@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui';
 
-import 'package:flutter_notification_listener/flutter_notification_listener.dart';
 import 'package:myphoneconnection/clipboard.dart';
 import 'package:myphoneconnection/config.dart';
 import 'package:flutter/material.dart';
@@ -14,7 +13,6 @@ import 'package:network_info_plus/network_info_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import "package:pointycastle/export.dart";
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:myphoneconnection/galleryFunctions.dart';
 
 ConnectionPC connectionPC = ConnectionPC();
 
@@ -209,26 +207,7 @@ class PairedDevices {
     }
   }
 
-  Future<void> createTestConnectionSave() async {
-    const numberOfTestConnections = 5;
-
-    for (int i = 0; i < numberOfTestConnections; i++) {
-      final device = Device(
-        'TestDevice$i',
-        'TestOS$i',
-        'TestCPU$i',
-        'TestRAM$i',
-        '192.168.1.$i',
-        '8080',
-      );
-
-      final nextPass = generateRandomBytes(16);
-      final save = ConnectionSave(device, nextPass);
-
-      await writeConnectionSave(save, device);
-      debugPrint('Test connection save $i created');
-    }
-  }
+  
 
   //should check the fact that it is giving full pass
   Future<void> checkNextPasswordProtocolLast(
@@ -333,7 +312,6 @@ class WebSocketConnection {
   late WebSocketChannel channel;
   late Uint8List key;
   bool isConnected = false;
-  GalleryFunctions galleryFunctions = GalleryFunctions();
   MediaPlayer mediaPlayer = MediaPlayer();
 
   List<DataStream> dataStreams = [];
@@ -344,7 +322,6 @@ class WebSocketConnection {
 
   void resetConnection() {
     connectionPC = ConnectionPC();
-    OurNotificationListener().stopListening();
     isConnected = false;
     customAudioHandler.stop();
     nots.setBackgroundNotification("My Phone Connection", "Not connected");
@@ -384,26 +361,19 @@ class WebSocketConnection {
     }
   }
 
-  void testif(String s) {
-    IsolateNameServer.lookupPortByName('setNewProcesses')?.send(s);
-  }
-
   void createWebSocket(Uint8List key_, Device device) async {
     key = key_;
 
-    registerDataStream("askImages", galleryFunctions.sendImages);
-    registerDataStream("firstImages", galleryFunctions.sendFirstImages);
-    registerDataStream("askFullImage", galleryFunctions.sendFullImage);
     registerDataStream("dataMediaPlayer", mediaPlayer.updateData);
     registerDataStream("clearMediaPlayer", mediaPlayer.clearMediaPlayer);
     registerDataStream("setMediaPosition", mediaPlayer.setPosition);
-    registerDataStream("shutAllNots", mediaPlayer.shutAllNots);
-    // registerDataStream(
-    //     "notAction", OurNotificationListener().actionOnNotification);
+    registerDataStream("shutAllNots", mediaPlayer.clearNotification);
     registerDataStream("clipboard", ClipboardUniversal().copy);
     registerDataStream("clipboardIMG", ClipboardUniversal().copyIMG);
     registerDataStream("clipboardIMG", ClipboardUniversal().copyIMG);
-    registerDataStream("setNewProcesses", testif);
+    registerDataStream("setNewProcesses", setProcesses);
+    registerDataStream("setInfoPc", setInfoPc);
+    registerDataStream("replyNotification", NotsListener().replyParser);
 
     final passForWS = encryptAES(key, "ableToConnect");
 
@@ -426,24 +396,7 @@ class WebSocketConnection {
         resetConnection();
       }, cancelOnError: true);
     } catch (e) {
-      debugPrint("Error: $e");
-      connectionPC = ConnectionPC();
-      OurNotificationListener().stopListening();
-      isConnected = false;
-    }
-
-    // try {
-    //   nots.setListeners();
-    //   nots.init();
-    // } catch (e) {
-    //   debugPrint("Error: $e");
-    // }
-
-    try {
-      OurNotificationListener().startListening();
-      OurNotificationListener().initPlatformState();
-    } catch (e) {
-      debugPrint("Error: $e");
+      resetConnection();
     }
 
     isConnected = true;

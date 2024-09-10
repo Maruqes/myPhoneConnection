@@ -8,6 +8,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import "package:pointycastle/export.dart";
 import 'package:archive/archive.dart';
+import 'package:http/http.dart' as http;
 
 const storage = FlutterSecureStorage();
 
@@ -174,4 +175,13 @@ Uint8List decompressData(Uint8List data) {
 
 String urlEncode(String data) {
   return Uri.encodeComponent(data);
+}
+
+Future<bool> doesUrlExist(String url) async {
+  try {
+    final response = await http.head(Uri.parse(url));
+    return response.statusCode == 200;
+  } catch (e) {
+    return false;
+  }
 }

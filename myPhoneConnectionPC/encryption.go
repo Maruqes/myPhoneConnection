@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"compress/gzip"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -120,34 +119,6 @@ func ReadFromFile(filename string) ([]byte, error) {
 	return data, nil
 }
 
-func decompressData(data []byte) ([]byte, error) {
-	buf := bytes.NewBuffer(data)
-	gzipReader, err := gzip.NewReader(buf)
-	if err != nil {
-		return nil, err
-	}
-	defer gzipReader.Close()
-	decompressedData, err := ioutil.ReadAll(gzipReader)
-	if err != nil {
-		return nil, err
-	}
-	return decompressedData, nil
-}
-
-func compressData(data []byte) ([]byte, error) {
-	var buf bytes.Buffer
-	gzipWriter := gzip.NewWriter(&buf)
-	_, err := gzipWriter.Write(data)
-	if err != nil {
-		return nil, err
-	}
-	err = gzipWriter.Close()
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
 func createRandomString(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, length)
@@ -160,27 +131,6 @@ func createRandomString(length int) string {
 		b[i] = charset[randIndex.Int64()]
 	}
 	return string(b)
-}
-
-func saveImage(imgDecompressed []byte) {
-	// Save image to the downloads folder
-	downloadsDir, err := os.UserHomeDir()
-	if err != nil {
-		log.Printf("Error getting user's home directory: %v", err)
-		return
-	}
-	downloadsPath := filepath.Join(downloadsDir, "Downloads")
-
-	fileName := "image" + createRandomString(8) + ".jpeg"
-	filePath := filepath.Join(downloadsPath, fileName)
-
-	err = ioutil.WriteFile(filePath, imgDecompressed, 0644)
-	if err != nil {
-		log.Printf("Error saving image file: %v", err)
-		return
-	}
-
-	log.Println("Image saved successfully with path:", filePath)
 }
 
 func saveTemporaryImage(imgDecompressed []byte) (string, error) {
@@ -197,25 +147,4 @@ func saveTemporaryImage(imgDecompressed []byte) (string, error) {
 
 	log.Println("Image saved successfully with path:", filePath)
 	return filePath, nil
-}
-
-func saveVideo(video []byte) {
-	// Save image to the downloads folder
-	downloadsDir, err := os.UserHomeDir()
-	if err != nil {
-		log.Printf("Error getting user's home directory: %v", err)
-		return
-	}
-	downloadsPath := filepath.Join(downloadsDir, "Downloads")
-
-	fileName := "image" + createRandomString(8) + ".mp4"
-	filePath := filepath.Join(downloadsPath, fileName)
-
-	err = ioutil.WriteFile(filePath, video, 0644)
-	if err != nil {
-		log.Printf("Error saving image file: %v", err)
-		return
-	}
-
-	log.Println("Image saved successfully with path:", filePath)
 }

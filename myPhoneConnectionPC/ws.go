@@ -36,7 +36,6 @@ func (ws *Ws) searchDataStream(indentifiers string) func(s string) {
 
 func webSocketKilled() {
 	log.Println("Websocket killed")
-	clearCacheImages()
 }
 
 func (ws *Ws) recieveData(s []byte, recMsg func(s string)) {
