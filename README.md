@@ -83,3 +83,4 @@ You can also just run the executable if it is already launched
 - Make the installer better
 - Make it run on windows
 - Create a logger for it
+- Nextpass.bin worng placed
